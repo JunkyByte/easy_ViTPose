@@ -1,5 +1,6 @@
 # ViTPose (simple version)
-An unofficial implementation of ViTPose [Y. Xu et al., 2022] 
+An unofficial implementation of ViTPose [Y. Xu et al., 2022] <br>
+![result_image](./examples/img1_result.jpg "Result Image")
 
 ## Usage
 ```

@@ -41,9 +41,11 @@ def inference(img_path: Path, img_size: tuple[int, int],
     
     # Feed to model
     tic = time()
-    heatmaps = vit_pose(img_tensor).detach().cpu().numpy()
+    heatmaps = vit_pose(img_tensor).detach().cpu().numpy() # N, 17, h/4, w/4
     elapsed_time = time()-tic
     print(f">>> Output size: {heatmaps.shape} ---> {elapsed_time:.4f} sec. elapsed [{elapsed_time**-1: .1f} fps]\n")
+    
+    
     
     kpts, probs = keypoints_from_heatmaps(heatmaps=heatmaps,
                                           center=np.array([[org_w//2, org_h//2]]), # x, y
@@ -54,7 +56,8 @@ def inference(img_path: Path, img_size: tuple[int, int],
                                           valid_radius_factor=0.0546875,
                                           use_udp=False,
                                           target_type='GaussianHeatmap')
-    points = np.concatenate([kpts[:, :, ::-1], probs], axis=2) # batch, num_people, (2+1)
+    print(kpts.shape, probs.shape)
+    points = np.concatenate([kpts[:, :, ::-1], probs], axis=2) # N, 17, (2+1)
 
     # Visualization 
     if save_result:
@@ -81,6 +84,8 @@ if __name__ == "__main__":
     CKPT_PATH = f"{CUR_DIR}/vitpose-b-multi-coco.pth"
     
     img_size = data_cfg['image_size']
+    if type(args.image_path) != list:
+         args.image_path = [args.image_path]
     for img_path in args.image_path:
         print(img_path)
         keypoints = inference(img_path=img_path, img_size=img_size, model_cfg=model_cfg, ckpt_path=CKPT_PATH, 
