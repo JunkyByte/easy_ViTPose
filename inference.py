@@ -47,14 +47,14 @@ def inference(img_path: Path, img_size: tuple[int, int],
     
     kpts, probs = keypoints_from_heatmaps(heatmaps=heatmaps,
                                           center=np.array([[org_w//2, org_h//2]]), # x, y
-                                          scale=np.array([[org_w/img_size[1], org_h/img_size[0]]]), # h, w
+                                          scale=np.array([[org_h/img_size[1], org_w/img_size[0]]]), # h, w
                                           unbiased=False,
                                           post_process='default',
                                           kernel=11,
                                           valid_radius_factor=0.0546875,
                                           use_udp=False,
                                           target_type='GaussianHeatmap')
-    points = np.concatenate([kpts[:, ::-1], probs], axis=2) # batch, num_people, (2+1)
+    points = np.concatenate([kpts[:, :, ::-1], probs], axis=2) # batch, num_people, (2+1)
 
     # Visualization 
     if save_result:
@@ -82,6 +82,7 @@ if __name__ == "__main__":
     
     img_size = data_cfg['image_size']
     for img_path in args.image_path:
+        print(img_path)
         keypoints = inference(img_path=img_path, img_size=img_size, model_cfg=model_cfg, ckpt_path=CKPT_PATH, 
-                            device=torch.device("cuda") if torch.cuda.is_available() else torch.device('cpu'),
-                            save_result=True)
+                              device=torch.device("cuda") if torch.cuda.is_available() else torch.device('cpu'),
+                              save_result=True)
