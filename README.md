@@ -3,7 +3,7 @@ An unofficial implementation of ViTPose [Y. Xu et al., 2022]
 
 ## Usage
 ```
-python inference.py --image-path './samples/img1.jpg'
+python inference.py --image-path './examples/img1.jpg'
 ```
 
 ## Note
