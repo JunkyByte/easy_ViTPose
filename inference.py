@@ -2,6 +2,7 @@ import argparse
 import os.path as osp
 
 import torch
+from torch import Tensor
 
 from pathlib import Path
 import cv2
@@ -13,13 +14,33 @@ from PIL import Image
 from torchvision.transforms import transforms
 
 from models.model import ViTPose
-from utils.top_down_eval import keypoints_from_heatmaps
 from utils.visualization import draw_points_and_skeleton, joints_dict
 
 
 __all__ = ['inference']
 
-
+def heatmap2coords(heatmaps: np.ndarray, original_resolution: tuple[int, int]=(256, 192)) -> np.ndarray:
+    __, __, heatmap_h, heatmap_w = heatmaps.shape
+    output = []
+    for heatmap in heatmaps:
+        keypoint_coords = []
+        for joint in heatmap:
+            keypoint_coord = np.unravel_index(np.argmax(joint), (heatmap_h, heatmap_w))
+            """
+            - 0: coord_y / (height//4) * bbox_height + bb_y1
+            - 1: coord_x / (width//4) * bbox_width + bb_x1
+            - 2: confidences
+            """
+            coord_y = keypoint_coord[0] / heatmap_h*original_resolution[0]
+            coord_x = keypoint_coord[1] / heatmap_w*original_resolution[1]
+            prob = joint[keypoint_coord]
+            keypoint_coords.append([coord_y, coord_x, prob])
+        output.append(keypoint_coords)
+            
+    return np.array(output).astype(float)
+    
+            
+            
 @torch.no_grad()
 def inference(img_path: Path, img_size: tuple[int, int],
               model_cfg: dict, ckpt_path: Path, device: torch.device, save_result: bool=True) -> np.ndarray:
@@ -32,37 +53,27 @@ def inference(img_path: Path, img_size: tuple[int, int],
     # Prepare input data
     img = Image.open(img_path)
     org_w, org_h = img.size
-    print(f">>> Original image size: {org_h} X {org_w}")
-    
+    print(f">>> Original image size: {org_h} X {org_w} (height X width)")
+    print(f">>> Resized image size: {img_size[1]} X {img_size[0]} (height X width)")
+    print(f">>> Scale change: {org_h/img_size[1]}, {org_w/img_size[0]}")
     img_tensor = transforms.Compose (
         [transforms.Resize((img_size[1], img_size[0])),
          transforms.ToTensor()]
     )(img).unsqueeze(0).to(device)
     
+    
     # Feed to model
     tic = time()
     heatmaps = vit_pose(img_tensor).detach().cpu().numpy() # N, 17, h/4, w/4
     elapsed_time = time()-tic
-    print(f">>> Output size: {heatmaps.shape} ---> {elapsed_time:.4f} sec. elapsed [{elapsed_time**-1: .1f} fps]\n")
+    print(f">>> Output size: {heatmaps.shape} ---> {elapsed_time:.4f} sec. elapsed [{elapsed_time**-1: .1f} fps]\n")    
     
+    points = heatmap2coords(heatmaps=heatmaps, original_resolution=(org_h, org_w))
     
-    
-    kpts, probs = keypoints_from_heatmaps(heatmaps=heatmaps,
-                                          center=np.array([[org_w//2, org_h//2]]), # x, y
-                                          scale=np.array([[org_h/img_size[1], org_w/img_size[0]]]), # h, w
-                                          unbiased=False,
-                                          post_process='default',
-                                          kernel=11,
-                                          valid_radius_factor=0.0546875,
-                                          use_udp=False,
-                                          target_type='GaussianHeatmap')
-    print(kpts.shape, probs.shape)
-    points = np.concatenate([kpts[:, :, ::-1], probs], axis=2) # N, 17, (2+1)
-
     # Visualization 
     if save_result:
         for pid, point in enumerate(points):
-            img = np.array(img)[:,:,::-1] # RGB to BGR for cv2 modules
+            img = np.array(img)[:, :, ::-1] # RGB to BGR for cv2 modules
             img = draw_points_and_skeleton(img.copy(), point, joints_dict()['coco']['skeleton'], person_index=pid,
                                            points_color_palette='gist_rainbow', skeleton_color_palette='jet',
                                            points_palette_samples=10, confidence_threshold=0.4)
