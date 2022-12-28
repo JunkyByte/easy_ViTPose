@@ -1,7 +1,7 @@
-_base_ = [
-    '../../../../_base_/default_runtime.py',
-    '../../../../_base_/datasets/coco.py'
-]
+# _base_ = [
+#     '../../../../_base_/default_runtime.py',
+#     '../../../../_base_/datasets/coco.py'
+# ]
 evaluation = dict(interval=10, metric='mAP', save_best='AP')
 
 optimizer = dict(type='AdamW', lr=5e-4, betas=(0.9, 0.999), weight_decay=0.1,
@@ -150,21 +150,18 @@ data = dict(
         ann_file=f'{data_root}/annotations/person_keypoints_train2017.json',
         img_prefix=f'{data_root}/train2017/',
         data_cfg=data_cfg,
-        pipeline=train_pipeline,
-        dataset_info={{_base_.dataset_info}}),
+        pipeline=train_pipeline),
     val=dict(
         type='TopDownCocoDataset',
         ann_file=f'{data_root}/annotations/person_keypoints_val2017.json',
         img_prefix=f'{data_root}/val2017/',
         data_cfg=data_cfg,
-        pipeline=val_pipeline,
-        dataset_info={{_base_.dataset_info}}),
+        pipeline=val_pipeline),
     test=dict(
         type='TopDownCocoDataset',
         ann_file=f'{data_root}/annotations/person_keypoints_val2017.json',
         img_prefix=f'{data_root}/val2017/',
         data_cfg=data_cfg,
-        pipeline=test_pipeline,
-        dataset_info={{_base_.dataset_info}}),
+        pipeline=test_pipeline)
 )
 

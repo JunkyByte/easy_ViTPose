@@ -15,7 +15,7 @@ from torchvision.transforms import transforms
 
 from models.model import ViTPose
 from utils.visualization import draw_points_and_skeleton, joints_dict
-
+from utils.dist_util import get_dist_info, init_dist
 
 __all__ = ['inference']
 
