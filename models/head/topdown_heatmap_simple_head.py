@@ -187,9 +187,13 @@ class TopdownHeatmapSimpleHead(TopdownHeatmapBaseHead):
 
     def forward(self, x):
         """Forward function."""
+        print(x.shape)
         x = self._transform_inputs(x)
+        print(x.shape)
         x = self.deconv_layers(x)
+        print(x.shape)
         x = self.final_layer(x)
+        print(x.shape)
         return x
 
     def inference_model(self, x, flip_pairs=None):

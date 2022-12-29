@@ -64,6 +64,7 @@ def inference(img_path: Path, img_size: tuple[int, int],
     
     # Feed to model
     tic = time()
+    print(vit_pose.forward_features(img_tensor).shape)
     heatmaps = vit_pose(img_tensor).detach().cpu().numpy() # N, 17, h/4, w/4
     elapsed_time = time()-tic
     print(f">>> Output size: {heatmaps.shape} ---> {elapsed_time:.4f} sec. elapsed [{elapsed_time**-1: .1f} fps]\n")    
