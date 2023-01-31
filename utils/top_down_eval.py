@@ -6,7 +6,25 @@ import numpy as np
 
 from .post_processing import transform_preds
 
-
+def heatmap2coords(heatmaps: np.ndarray, original_resolution: tuple[int, int]=(256, 192)) -> np.ndarray:
+    __, __, heatmap_h, heatmap_w = heatmaps.shape
+    output = []
+    for heatmap in heatmaps:
+        keypoint_coords = []
+        for joint in heatmap:
+            keypoint_coord = np.unravel_index(np.argmax(joint), (heatmap_h, heatmap_w))
+            """
+            - 0: coord_y / (height//4) * bbox_height + bb_y1
+            - 1: coord_x / (width//4) * bbox_width + bb_x1
+            - 2: confidences
+            """
+            coord_y = keypoint_coord[0] / heatmap_h*original_resolution[0]
+            coord_x = keypoint_coord[1] / heatmap_w*original_resolution[1]
+            prob = joint[keypoint_coord]
+            keypoint_coords.append([coord_y, coord_x, prob])
+        output.append(keypoint_coords)
+            
+    return np.array(output).astype(float)
 
 def _calc_distances(preds, targets, mask, normalize):
     """Calculate the normalized distances between preds and target.

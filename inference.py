@@ -16,29 +16,9 @@ from torchvision.transforms import transforms
 from models.model import ViTPose
 from utils.visualization import draw_points_and_skeleton, joints_dict
 from utils.dist_util import get_dist_info, init_dist
+from utils.top_down_eval import keypoints_from_heatmaps
 
 __all__ = ['inference']
-
-def heatmap2coords(heatmaps: np.ndarray, original_resolution: tuple[int, int]=(256, 192)) -> np.ndarray:
-    __, __, heatmap_h, heatmap_w = heatmaps.shape
-    output = []
-    for heatmap in heatmaps:
-        keypoint_coords = []
-        for joint in heatmap:
-            keypoint_coord = np.unravel_index(np.argmax(joint), (heatmap_h, heatmap_w))
-            """
-            - 0: coord_y / (height//4) * bbox_height + bb_y1
-            - 1: coord_x / (width//4) * bbox_width + bb_x1
-            - 2: confidences
-            """
-            coord_y = keypoint_coord[0] / heatmap_h*original_resolution[0]
-            coord_x = keypoint_coord[1] / heatmap_w*original_resolution[1]
-            prob = joint[keypoint_coord]
-            keypoint_coords.append([coord_y, coord_x, prob])
-        output.append(keypoint_coords)
-            
-    return np.array(output).astype(float)
-    
             
             
 @torch.no_grad()
@@ -64,12 +44,14 @@ def inference(img_path: Path, img_size: tuple[int, int],
     
     # Feed to model
     tic = time()
-    print(vit_pose.forward_features(img_tensor).shape)
     heatmaps = vit_pose(img_tensor).detach().cpu().numpy() # N, 17, h/4, w/4
     elapsed_time = time()-tic
     print(f">>> Output size: {heatmaps.shape} ---> {elapsed_time:.4f} sec. elapsed [{elapsed_time**-1: .1f} fps]\n")    
     
-    points = heatmap2coords(heatmaps=heatmaps, original_resolution=(org_h, org_w))
+    # points = heatmap2coords(heatmaps=heatmaps, original_resolution=(org_h, org_w))
+    points, prob = keypoints_from_heatmaps(heatmaps=heatmaps, center=np.array([[org_w//2, org_h//2]]), scale=np.array([[org_w, org_h]]),
+                                           unbiased=True, use_udp=True)
+    points = np.concatenate([points[:, :, ::-1], prob], axis=2)
     
     # Visualization 
     if save_result:

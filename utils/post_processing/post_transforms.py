@@ -178,7 +178,7 @@ def transform_preds(coords, center, scale, output_size, use_udp=False):
     assert len(output_size) == 2
 
     # Recover the scale which is normalized by a factor of 200.
-    scale = scale * 200.0
+    # scale = scale * 200.0
 
     if use_udp:
         scale_x = scale[0] / (output_size[0] - 1.0)
