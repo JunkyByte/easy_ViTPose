@@ -63,8 +63,27 @@ def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: boo
     
     criterion = JointsMSELoss(use_target_weight=cfg.model['keypoint_head']['loss_keypoint']['use_target_weight'])
     
-    """ TODO: Implementation of Layer Decay """
-    optimizer = AdamW(model, lr=cfg.optimizer['lr'], betas=cfg.optimizer['betas'], weight_decay=cfg.optimizer['weight_decay'])
+    # Layer-wise Decay
+    layer_names = []
+    for idx, (name, param) in enumerate(model.named_parameters()):
+        layer_names.append(name)
+        print(f'{idx}: {name}')
+    layer_names.reverse()
+    
+    model_parameters = []
+    lr = cfg.optimizer['lr']
+    lr_mult = cfg.optimizer['paramwise_cfg']['layer_decay_rate']
+    for idx, name in enumerate(layer_names):
+        print(f'{idx}: lr = {lr:.6f}, {name}')
+        # append layer parameters
+        parameters += [{'params': [p for n, p in model.named_parameters() if n == name and p.requires_grad],
+                        'lr': lr}]
+        # update learning rate
+        lr *= lr_mult
+    
+    # Optimizer
+    optimizer = AdamW(model_parameters, betas=cfg.optimizer['betas'], weight_decay=cfg.optimizer['weight_decay'])
+    
     
     """ TODO: Implementation of Warmup LR"""
     lr_scheduler = MultiStepLR(optimizer, milestones=cfg.lr_config['Step'])
