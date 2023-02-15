@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import MultiStepLR
+from torch.optim.lr_scheduler import MultiStepLR, LambdaLR
 from torch.nn.parallel import DataParallel, DistributedDataParallel
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import Dataset, DataLoader
@@ -52,10 +52,21 @@ def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: boo
     layerwise_optimizer = LayerDecayOptimizer(optimizer, lr_mult)
     
     
-    """ TODO: Implementation of Warmup LR"""
-    lr_scheduler = MultiStepLR(optimizer, milestones=cfg.lr_config['Step'])
+    # Learning rate scheduler (MultiStepLR)
+    milestones = cfg.lr_config['Step']
+    gamma = 0.1
+    scheduler = MultiStepLR(optimizer, milestones, gamma)
+
+    # Warm-up scheduler
+    num_warmup_steps = cfg.lr_config['warmup_iters']  # Number of warm-up steps
+    warmup_factor = cfg.lr_config['warmup_ratio']  # Initial learning rate = warmup_factor * learning_rate
+    warmup_scheduler = LambdaLR(
+        optimizer,
+        lr_lambda=lambda step: warmup_factor + (1.0 - warmup_factor) * step / num_warmup_steps
+    )
     
     model.train()
+    global_step = 0
     for dataloader in dataloaders:
         for epoch in cfg.total_epochs:
             for batch_idx, batch in dataloader:
@@ -67,9 +78,12 @@ def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: boo
                 loss = criterion(outputs, targets) # if use_target_weight=True, then criterion(outputs, targets, target_weights)
                 loss.backward()
                 clip_grad_norm_(model.parameters(), **cfg.optimizer_config['grad_clip'])
-                
                 layerwise_optimizer.step()
-            lr_scheduler.step()
+                
+                if global_step < num_warmup_steps:
+                    warmup_scheduler.step()
+                global_step += 1
+            scheduler.step()
             
 
     # fp16 setting
