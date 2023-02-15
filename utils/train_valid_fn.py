@@ -40,10 +40,8 @@ def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: boo
     else:
         model = DataParallel(model, device_ids=cfg.gpu_ids)
     
+    # Loss function
     criterion = JointsMSELoss(use_target_weight=cfg.model['keypoint_head']['loss_keypoint']['use_target_weight'])
-    
-
-    
     
     # Optimizer
     lr = cfg.optimizer['lr']
