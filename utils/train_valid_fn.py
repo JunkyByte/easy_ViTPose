@@ -9,33 +9,12 @@ from torch.utils.data import Dataset, DataLoader
 from torch.nn.utils import clip_grad_norm_
 
 from models.losses import JointsMSELoss
+from models.optimizer import LayerDecayOptimizer
 
 from utils.dist_util import get_dist_info, init_dist
 from utils.logging import get_root_logger
 
 
-# def LRWarmup
-# def get_warmup_lr(self, cur_iters: int):
-
-#     def _get_warmup_lr(cur_iters, regular_lr):
-#         if self.warmup == 'constant':
-#             warmup_lr = [_lr * self.warmup_ratio for _lr in regular_lr]
-#         elif self.warmup == 'linear':
-#             k = (1 - cur_iters / self.warmup_iters) * (1 -
-#                                                         self.warmup_ratio)
-#             warmup_lr = [_lr * (1 - k) for _lr in regular_lr]
-#         elif self.warmup == 'exp':
-#             k = self.warmup_ratio**(1 - cur_iters / self.warmup_iters)
-#             warmup_lr = [_lr * k for _lr in regular_lr]
-#         return warmup_lr
-
-#     if isinstance(self.regular_lr, dict):
-#         lr_groups = {}
-#         for key, regular_lr in self.regular_lr.items():
-#             lr_groups[key] = _get_warmup_lr(cur_iters, regular_lr)
-#         return lr_groups
-#     else:
-#         return _get_warmup_lr(cur_iters, self.regular_lr)
 
 def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: bool, validate: bool,  timestamp: str, meta: dict) -> None:
     logger = get_root_logger()
@@ -63,26 +42,16 @@ def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: boo
     
     criterion = JointsMSELoss(use_target_weight=cfg.model['keypoint_head']['loss_keypoint']['use_target_weight'])
     
-    # Layer-wise Decay
-    layer_names = []
-    for idx, (name, param) in enumerate(model.named_parameters()):
-        layer_names.append(name)
-        print(f'{idx}: {name}')
-    layer_names.reverse()
+
     
-    model_parameters = []
-    lr = cfg.optimizer['lr']
-    lr_mult = cfg.optimizer['paramwise_cfg']['layer_decay_rate']
-    for idx, name in enumerate(layer_names):
-        print(f'{idx}: lr = {lr:.6f}, {name}')
-        # append layer parameters
-        parameters += [{'params': [p for n, p in model.named_parameters() if n == name and p.requires_grad],
-                        'lr': lr}]
-        # update learning rate
-        lr *= lr_mult
     
     # Optimizer
-    optimizer = AdamW(model_parameters, betas=cfg.optimizer['betas'], weight_decay=cfg.optimizer['weight_decay'])
+    lr = cfg.optimizer['lr']
+    optimizer = AdamW(model.parameters(), lr=lr, betas=cfg.optimizer['betas'], weight_decay=cfg.optimizer['weight_decay'])
+    
+    # Layer-wise learning rate decay
+    lr_mult = [cfg.optimizer['paramwise_cfg']['layer_decay_rate']] * cfg.optimizer['paramwise_cfg']['num_layers']
+    layerwise_optimizer = LayerDecayOptimizer(optimizer, lr_mult)
     
     
     """ TODO: Implementation of Warmup LR"""
@@ -92,7 +61,7 @@ def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: boo
     for dataloader in dataloaders:
         for epoch in cfg.total_epochs:
             for batch_idx, batch in dataloader:
-                optimizer.zero_grad()
+                layerwise_optimizer.zero_grad()
                 
                 images, targets, target_weights, __ = batch
                 outputs = model(images)
@@ -101,7 +70,7 @@ def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: boo
                 loss.backward()
                 clip_grad_norm_(model.parameters(), **cfg.optimizer_config['grad_clip'])
                 
-                optimizer.step()
+                layerwise_optimizer.step()
             lr_scheduler.step()
             
 
