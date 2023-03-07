@@ -8,6 +8,8 @@ import warnings
 import click
 import yaml
 
+from glob import glob
+
 import torch
 import torch.distributed as dist
 
@@ -33,24 +35,37 @@ def main(config_path, model_name):
     cfg = {'b':b_cfg,
            'l':l_cfg,
            'h':h_cfg}.get(model_name.lower())
-    
     # Load config.yaml
     with open(config_path, 'r') as f:
         cfg_yaml = yaml.load(f, Loader=yaml.SafeLoader)
+        
     for k, v in cfg_yaml.items():
-        cfg.__setattr__(k, v)
-    
+        if hasattr(cfg, k):
+            raise ValueError(f"Already exsist {k} in config")
+        else:
+            cfg.__setattr__(k, v)
+
     # set cudnn_benchmark
     if cfg.cudnn_benchmark:
         torch.backends.cudnn.benchmark = True
     
-    # Set work directory
-    cfg.__setattr__('work_dir', f"{CUR_PATH}/runs/train")
+    # Set work directory (session-level)
+    if not hasattr(cfg, 'work_dir'):
+        cfg.__setattr__('work_dir', f"{CUR_PATH}/runs/train")
+        
     if not osp.exists(cfg.work_dir):
         os.makedirs(cfg.work_dir)
+    session_list = sorted(glob(f"{cfg.work_dir}/*"))
+    if len(session_list) == 0:
+        session = 1
+    else:
+        session = int(os.path.basename(session_list[-1])) + 1
+    session_dir = osp.join(cfg.work_dir, str(session).zfill(3))
+    os.makedirs(session_dir)
+    cfg.__setattr__('work_dir', session_dir)
         
 
-    if cfg.optimizer['autoscale_lr']:
+    if cfg.autoscale_lr:
         # apply the linear scaling rule (https://arxiv.org/abs/1706.02677)
         cfg.optimizer['lr'] = cfg.optimizer['lr'] * len(cfg.gpu_ids) / 8
 
@@ -72,7 +87,7 @@ def main(config_path, model_name):
 
     # init the logger before other steps
     timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
-    log_file = osp.join(cfg.work_dir, f'{timestamp}.log')
+    log_file = osp.join(session_dir, f'{timestamp}.log')
     logger = get_root_logger(log_file=log_file)
 
     # init the meta dict to record some important information such as
@@ -94,26 +109,28 @@ def main(config_path, model_name):
     model = ViTPose(cfg.model)
     
     # Set dataset
-    datasets = COCODataset(root_path=cfg.data_root, 
-                           data_version="train2017",
-                           is_train=True, 
-                           use_gt_bboxes=True,
-                           image_width=192, 
-                           image_height=256,
-                           scale=True, 
-                           scale_factor=0.35, 
-                           flip_prob=0.5, 
-                           rotate_prob=0.5, 
-                           rotation_factor=45., 
-                           half_body_prob=0.3,
-                           use_different_joints_weight=True, 
-                           heatmap_sigma=3, 
-                           soft_nms=False)
+    datasets = COCODataset(
+        root_path=cfg.data_root, 
+        data_version="train2017",
+        is_train=True, 
+        use_gt_bboxes=True,
+        image_width=192, 
+        image_height=256,
+        scale=True, 
+        scale_factor=0.35, 
+        flip_prob=0.5, 
+        rotate_prob=0.5, 
+        rotation_factor=45., 
+        half_body_prob=0.3,
+        use_different_joints_weight=True, 
+        heatmap_sigma=3, 
+        soft_nms=False
+        )
 
     train_model(
-        model,
-        datasets,
-        cfg,
+        model=model,
+        datasets=datasets,
+        cfg=cfg,
         distributed=distributed,
         validate=cfg.validate,
         timestamp=timestamp,

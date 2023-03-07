@@ -1,19 +1,22 @@
+import os.path as osp
+
 import torch
 import torch.nn as nn
-
-from torch.optim import AdamW
-from torch.optim.lr_scheduler import MultiStepLR, LambdaLR
-from torch.nn.parallel import DataParallel, DistributedDataParallel
-from torch.utils.data.distributed import DistributedSampler
-from torch.utils.data import Dataset, DataLoader
-from torch.nn.utils import clip_grad_norm_
 
 from models.losses import JointsMSELoss
 from models.optimizer import LayerDecayOptimizer
 
+from torch.nn.parallel import DataParallel, DistributedDataParallel
+from torch.nn.utils import clip_grad_norm_
+from torch.optim import AdamW
+from torch.optim.lr_scheduler import LambdaLR, MultiStepLR
+from torch.utils.data import DataLoader, Dataset
+from torch.utils.data.distributed import DistributedSampler
+from torch.cuda.amp import autocast, GradScaler
+from tqdm import tqdm
+
 from utils.dist_util import get_dist_info, init_dist
 from utils.logging import get_root_logger
-
 
 
 def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: bool, validate: bool,  timestamp: str, meta: dict) -> None:
@@ -44,8 +47,7 @@ def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: boo
     criterion = JointsMSELoss(use_target_weight=cfg.model['keypoint_head']['loss_keypoint']['use_target_weight'])
     
     # Optimizer
-    lr = cfg.optimizer['lr']
-    optimizer = AdamW(model.parameters(), lr=lr, betas=cfg.optimizer['betas'], weight_decay=cfg.optimizer['weight_decay'])
+    optimizer = AdamW(model.parameters(), lr=cfg.optimizer['lr'], betas=cfg.optimizer['betas'], weight_decay=cfg.optimizer['weight_decay'])
     
     # Layer-wise learning rate decay
     lr_mult = [cfg.optimizer['paramwise_cfg']['layer_decay_rate']] * cfg.optimizer['paramwise_cfg']['num_layers']
@@ -53,7 +55,7 @@ def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: boo
     
     
     # Learning rate scheduler (MultiStepLR)
-    milestones = cfg.lr_config['Step']
+    milestones = cfg.lr_config['step']
     gamma = 0.1
     scheduler = MultiStepLR(optimizer, milestones, gamma)
 
@@ -65,17 +67,42 @@ def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: boo
         lr_lambda=lambda step: warmup_factor + (1.0 - warmup_factor) * step / num_warmup_steps
     )
     
-    model.train()
+    # fp16 setting
+    fp16_cfg = cfg.get('fp16', None)
+    if fp16_cfg is not None:
+        logger.info("Using fp16...")
+        # Create a GradScaler object for FP16 training
+        scaler = GradScaler()
+        raise NotImplementedError()
+    
+    total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    logger.info(f'''
+    #========= [Train Configs] =========#
+    # - Num GPUs: {len(cfg.gpu_ids)}
+    # - Batch size (per gpu): {cfg.data['samples_per_gpu']}
+    # - LR: {cfg.optimizer['lr']: .6f}
+    # - Num params: {total_params:,d}
+    # - AMP: {fp16_cfg}
+    #===================================# 
+    ''')
+    
     global_step = 0
     for dataloader in dataloaders:
-        for epoch in cfg.total_epochs:
-            for batch_idx, batch in dataloader:
+        for epoch in range(cfg.total_epochs):
+            model.train()
+            train_pbar = tqdm(dataloader)
+            total_loss = 0
+            for batch_idx, batch in enumerate(train_pbar):
                 layerwise_optimizer.zero_grad()
                 
                 images, targets, target_weights, __ = batch
+                images = images.to('cuda')
+                targets = targets.to('cuda')
+                target_weights = target_weights.to('cuda')
+                
                 outputs = model(images)
                 
-                loss = criterion(outputs, targets) # if use_target_weight=True, then criterion(outputs, targets, target_weights)
+                loss = criterion(outputs, targets, target_weights) # if use_target_weight=True, then criterion(outputs, targets, target_weights)
                 loss.backward()
                 clip_grad_norm_(model.parameters(), **cfg.optimizer_config['grad_clip'])
                 layerwise_optimizer.step()
@@ -83,14 +110,16 @@ def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: boo
                 if global_step < num_warmup_steps:
                     warmup_scheduler.step()
                 global_step += 1
+                
+                total_loss += loss.item()
+                train_pbar.set_description(f"🏋️> [Summary] Epoch [{str(epoch).zfill(3)}/{str(cfg.total_epochs).zfill(3)}] | Loss {loss.item():.4f} | LR {optimizer.param_groups[0]['lr']:.6f} | Step")
             scheduler.step()
             
+            logger.info(f"🏋️> Epoch [{str(epoch).zfill(3)}/{str(cfg.total_epochs).zfill(3)}] | Average Loss {total_loss/len(dataloader):.4f}")
+            ckpt_name = f"epoch{str(epoch).zfill(3)}.pth"
+            ckpt_path = osp.join(cfg.work_dir, ckpt_name)
+            torch.save(model.module.state_dict(), ckpt_path)
 
-    # fp16 setting
-    fp16_cfg = cfg.get('fp16', None)
-    if fp16_cfg is not None:
-        raise NotImplementedError()
-    
     # validation
     if validate:
         raise NotImplementedError()

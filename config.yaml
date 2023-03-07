@@ -8,9 +8,7 @@ gpu_ids: [0]
 launcher: 'none' # When distributed training ['none', 'pytorch', 'slurm', 'mpi']
 validate: True
 
-optimizer:
-  lr: 0.001
-  autoscale_lr: True # automatically scale lr with the number of gpus
+autoscale_lr: True # automatically scale lr with the number of gpus
 
 dist_params:
   ...
