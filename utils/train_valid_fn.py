@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.distributed import DistributedSampler
 from torch.cuda.amp import autocast, GradScaler
 from tqdm import tqdm
+from time import time
 
 from utils.dist_util import get_dist_info, init_dist
 from utils.logging import get_root_logger
@@ -67,13 +68,11 @@ def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: boo
         lr_lambda=lambda step: warmup_factor + (1.0 - warmup_factor) * step / num_warmup_steps
     )
     
-    # fp16 setting
-    fp16_cfg = cfg.get('fp16', None)
-    if fp16_cfg is not None:
-        logger.info("Using fp16...")
+    # AMP setting
+    if cfg.use_amp:
+        logger.info("Using Automatic Mixed Precision (AMP) training...")
         # Create a GradScaler object for FP16 training
         scaler = GradScaler()
-        raise NotImplementedError()
     
     total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f'''
@@ -82,7 +81,7 @@ def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: boo
     # - Batch size (per gpu): {cfg.data['samples_per_gpu']}
     # - LR: {cfg.optimizer['lr']: .6f}
     # - Num params: {total_params:,d}
-    # - AMP: {fp16_cfg}
+    # - AMP: {cfg.use_amp}
     #===================================# 
     ''')
     
@@ -92,30 +91,43 @@ def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: boo
             model.train()
             train_pbar = tqdm(dataloader)
             total_loss = 0
+            tic = time()
             for batch_idx, batch in enumerate(train_pbar):
                 layerwise_optimizer.zero_grad()
                 
+                
+                    
                 images, targets, target_weights, __ = batch
                 images = images.to('cuda')
                 targets = targets.to('cuda')
                 target_weights = target_weights.to('cuda')
                 
-                outputs = model(images)
                 
-                loss = criterion(outputs, targets, target_weights) # if use_target_weight=True, then criterion(outputs, targets, target_weights)
-                loss.backward()
-                clip_grad_norm_(model.parameters(), **cfg.optimizer_config['grad_clip'])
-                layerwise_optimizer.step()
+                if cfg.use_amp:
+                    with autocast():
+                        outputs = model(images)
+                        loss = criterion(outputs, targets, target_weights)
+                    scaler.scale(loss).backward()
+                    clip_grad_norm_(model.parameters(), **cfg.optimizer_config['grad_clip'])
+                    scaler.step(layerwise_optimizer)
+                    scaler.update()
+                else:
+                    outputs = model(images)
+                    
+                    loss = criterion(outputs, targets, target_weights) # if use_target_weight=True, then criterion(outputs, targets, target_weights)
+                    loss.backward()
+                    clip_grad_norm_(model.parameters(), **cfg.optimizer_config['grad_clip'])
+                    layerwise_optimizer.step()
                 
                 if global_step < num_warmup_steps:
                     warmup_scheduler.step()
                 global_step += 1
                 
                 total_loss += loss.item()
-                train_pbar.set_description(f"🏋️> [Summary] Epoch [{str(epoch).zfill(3)}/{str(cfg.total_epochs).zfill(3)}] | Loss {loss.item():.4f} | LR {optimizer.param_groups[0]['lr']:.6f} | Step")
+                train_pbar.set_description(f"🏋️> Epoch [{str(epoch).zfill(3)}/{str(cfg.total_epochs).zfill(3)}] | Loss {loss.item():.4f} | LR {optimizer.param_groups[0]['lr']:.6f} | Step")
             scheduler.step()
             
-            logger.info(f"🏋️> Epoch [{str(epoch).zfill(3)}/{str(cfg.total_epochs).zfill(3)}] | Average Loss {total_loss/len(dataloader):.4f}")
+            logger.info(f"[Summary] Epoch [{str(epoch).zfill(3)}/{str(cfg.total_epochs).zfill(3)}] | Average Loss {total_loss/len(dataloader):.4f} --- {time()-tic:.5f} sec. elapsed")
             ckpt_name = f"epoch{str(epoch).zfill(3)}.pth"
             ckpt_path = osp.join(cfg.work_dir, ckpt_name)
             torch.save(model.module.state_dict(), ckpt_path)

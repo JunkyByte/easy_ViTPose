@@ -111,7 +111,7 @@ def main(config_path, model_name):
     # Set dataset
     datasets = COCODataset(
         root_path=cfg.data_root, 
-        data_version="train2017",
+        data_version="train_custom",
         is_train=True, 
         use_gt_bboxes=True,
         image_width=192, 
