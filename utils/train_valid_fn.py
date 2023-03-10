@@ -19,17 +19,41 @@ from time import time
 from utils.dist_util import get_dist_info, init_dist
 from utils.logging import get_root_logger
 
-
-def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: bool, validate: bool,  timestamp: str, meta: dict) -> None:
+@torch.no_grad()
+def valid_model(model: nn.Module, dataloaders: DataLoader, criterion: nn.Module, cfg: dict) -> None:
+    total_loss = 0
+    total_metric = 0
+    model.eval()
+    for dataloader in dataloaders:
+        for batch_idx, batch in enumerate(dataloader):
+            images, targets, target_weights, __ = batch
+            images = images.to('cuda')
+            targets = targets.to('cuda')
+            target_weights = target_weights.to('cuda')
+            
+            outputs = model(images)
+            loss = criterion(outputs, targets, target_weights)
+            total_loss += loss.item()
+            
+    avg_loss = total_loss/(len(dataloader)*len(dataloaders))
+    return avg_loss
+ 
+def train_model(model: nn.Module, datasets_train: Dataset, datasets_valid: Dataset, cfg: dict, distributed: bool, validate: bool,  timestamp: str, meta: dict) -> None:
     logger = get_root_logger()
     
     # Prepare data loaders
-    datasets = datasets if isinstance(datasets, (list, tuple)) else [datasets]
+    datasets_train = datasets_train if isinstance(datasets_train, (list, tuple)) else [datasets_train]
+    datasets_valid = datasets_valid if isinstance(datasets_valid, (list, tuple)) else [datasets_valid]
+    
     if distributed:
-        samplers = [DistributedSampler(ds, num_replicas=len(cfg.gpu_ids), rank=torch.cuda.current_device(), shuffle=True, drop_last=False) for ds in datasets]
+        samplers_train = [DistributedSampler(ds, num_replicas=len(cfg.gpu_ids), rank=torch.cuda.current_device(), shuffle=True, drop_last=False) for ds in datasets_train]
+        samplers_valid = [DistributedSampler(ds, num_replicas=len(cfg.gpu_ids), rank=torch.cuda.current_device(), shuffle=False, drop_last=False) for ds in datasets_valid]
     else:
-        samplers = [None for ds in datasets]
-    dataloaders = [DataLoader(ds, batch_size=cfg.data['samples_per_gpu'], sampler=sampler, num_workers=cfg.data['workers_per_gpu'], pin_memory=False) for ds, sampler in zip(datasets, samplers)]
+        samplers_train = [None for ds in datasets_train]
+        samplers_valid = [None for ds in datasets_valid]
+    
+    dataloaders_train = [DataLoader(ds, batch_size=cfg.data['samples_per_gpu'], shuffle=True, sampler=sampler, num_workers=cfg.data['workers_per_gpu'], pin_memory=False) for ds, sampler in zip(datasets_train, samplers_train)]
+    dataloaders_valid = [DataLoader(ds, batch_size=cfg.data['samples_per_gpu'], shuffle=False, sampler=sampler, num_workers=cfg.data['workers_per_gpu'], pin_memory=False) for ds, sampler in zip(datasets_valid, samplers_valid)]
 
     # put model on gpus
     if distributed:
@@ -37,10 +61,11 @@ def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: boo
         # Sets the `find_unused_parameters` parameter in
         # torch.nn.parallel.DistributedDataParallel
 
-        model = DistributedDataParallel(model, 
-                                        device_ids=[torch.cuda.current_device()], 
-                                        broadcast_buffers=False, 
-                                        find_unused_parameters=find_unused_parameters)
+        model = DistributedDataParallel(
+            module=model, 
+            device_ids=[torch.cuda.current_device()], 
+            broadcast_buffers=False, 
+            find_unused_parameters=find_unused_parameters)
     else:
         model = DataParallel(model, device_ids=cfg.gpu_ids)
     
@@ -74,8 +99,9 @@ def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: boo
         # Create a GradScaler object for FP16 training
         scaler = GradScaler()
     
+    # Logging config
     total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    logger.info(f'''
+    logger.info(f'''\n
     #========= [Train Configs] =========#
     # - Num GPUs: {len(cfg.gpu_ids)}
     # - Batch size (per gpu): {cfg.data['samples_per_gpu']}
@@ -86,7 +112,7 @@ def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: boo
     ''')
     
     global_step = 0
-    for dataloader in dataloaders:
+    for dataloader in dataloaders_train:
         for epoch in range(cfg.total_epochs):
             model.train()
             train_pbar = tqdm(dataloader)
@@ -94,14 +120,11 @@ def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: boo
             tic = time()
             for batch_idx, batch in enumerate(train_pbar):
                 layerwise_optimizer.zero_grad()
-                
-                
                     
                 images, targets, target_weights, __ = batch
                 images = images.to('cuda')
                 targets = targets.to('cuda')
                 target_weights = target_weights.to('cuda')
-                
                 
                 if cfg.use_amp:
                     with autocast():
@@ -113,8 +136,7 @@ def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: boo
                     scaler.update()
                 else:
                     outputs = model(images)
-                    
-                    loss = criterion(outputs, targets, target_weights) # if use_target_weight=True, then criterion(outputs, targets, target_weights)
+                    loss = criterion(outputs, targets, target_weights)
                     loss.backward()
                     clip_grad_norm_(model.parameters(), **cfg.optimizer_config['grad_clip'])
                     layerwise_optimizer.step()
@@ -127,11 +149,14 @@ def train_model(model: nn.Module, datasets: Dataset, cfg: dict, distributed: boo
                 train_pbar.set_description(f"🏋️> Epoch [{str(epoch).zfill(3)}/{str(cfg.total_epochs).zfill(3)}] | Loss {loss.item():.4f} | LR {optimizer.param_groups[0]['lr']:.6f} | Step")
             scheduler.step()
             
-            logger.info(f"[Summary] Epoch [{str(epoch).zfill(3)}/{str(cfg.total_epochs).zfill(3)}] | Average Loss {total_loss/len(dataloader):.4f} --- {time()-tic:.5f} sec. elapsed")
+            avg_loss_train = total_loss/len(dataloader)
+            logger.info(f"[Summary-train] Epoch [{str(epoch).zfill(3)}/{str(cfg.total_epochs).zfill(3)}] | Average Loss (train) {avg_loss_train:.4f} --- {time()-tic:.5f} sec. elapsed")
             ckpt_name = f"epoch{str(epoch).zfill(3)}.pth"
             ckpt_path = osp.join(cfg.work_dir, ckpt_name)
             torch.save(model.module.state_dict(), ckpt_path)
 
-    # validation
-    if validate:
-        raise NotImplementedError()
+            # validation
+            if validate:
+                tic2 = time()
+                avg_loss_valid = valid_model(model, dataloaders_valid, criterion, cfg)
+                logger.info(f"[Summary-valid] Epoch [{str(epoch).zfill(3)}/{str(cfg.total_epochs).zfill(3)}] | Average Loss (valid) {avg_loss_valid:.4f} --- {time()-tic2:.5f} sec. elapsed")

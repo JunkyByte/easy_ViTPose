@@ -100,7 +100,7 @@ def draw_points(image, points, color_palette='tab20', palette_samples=16, confid
             np.array(plt.get_cmap(color_palette)(np.linspace(0, 1, palette_samples))) * 255
         ).astype(np.uint8)[:, -2::-1].tolist()
 
-    circle_size = max(1, min(image.shape[:2]) // 160)  # ToDo Shape it taking into account the size of the detection
+    circle_size = max(1, min(image.shape[:2]) // 150)  # ToDo Shape it taking into account the size of the detection
     # circle_size = max(2, int(np.sqrt(np.max(np.max(points, axis=0) - np.min(points, axis=0)) // 16)))
 
     for i, pt in enumerate(points):

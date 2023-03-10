@@ -27,8 +27,15 @@ def inference(img_path: Path, img_size: tuple[int, int],
     
     # Prepare model
     vit_pose = ViTPose(model_cfg)
-    vit_pose.load_state_dict(torch.load(ckpt_path)['state_dict'])
+    
+   
+    ckpt = torch.load(ckpt_path)
+    if 'state_dict' in ckpt:
+        vit_pose.load_state_dict(ckpt['state_dict'])
+    else:
+        vit_pose.load_state_dict(ckpt)
     vit_pose.to(device)
+    print(f">>> Model loaded: {ckpt_path}")
     
     # Prepare input data
     img = Image.open(img_path)
@@ -71,11 +78,12 @@ if __name__ == "__main__":
     from configs.ViTPose_base_coco_256x192 import data_cfg
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--image-path', nargs='+', type=str, default='examples/img1.jpg', help='image path(s)')
+    parser.add_argument('--image-path', nargs='+', type=str, default='examples/sample.jpg', help='image path(s)')
     args = parser.parse_args()
     
     CUR_DIR = osp.dirname(__file__)
-    CKPT_PATH = f"{CUR_DIR}/vitpose-b-multi-coco.pth"
+    # CKPT_PATH = f"{CUR_DIR}/vitpose-b-multi-coco.pth"
+    CKPT_PATH = "/home/jaehyun/workspace/PoseEstimation/ViTPose_pytorch/runs/train/002/epoch010.pth"
     
     img_size = data_cfg['image_size']
     if type(args.image_path) != list:

@@ -1,11 +1,19 @@
-# ViTPose (simple version)
-An unofficial implementation of ViTPose [Y. Xu et al., 2022] <br>
+# ViTPose (simple version w/o mmcv)
+An unofficial implementation of `ViTPose` [Y. Xu et al., 2022] <br>
 ![result_image](./examples/img1_result.jpg "Result Image")
 
 ## Usage
+### | **Inference**
 ```
 python inference.py --image-path './examples/img1.jpg'
 ```
+
+### | **Training**
+```
+python train.py --config-path config.yaml --model-name 'b'
+```
+- `model_name` must be in (`b`, `l`, `h`)
+
 
 ## Note
 1.  Download the trained model (.pth)

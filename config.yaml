@@ -3,7 +3,7 @@ log_level: logging.INFO
 seed: 0
 deterministic: True # whether not to evaluate the checkpoint during training
 cudnn_benchmark: True # Use cudnn 
-resume_from: None # CKPT path
+resume_from: "/home/jaehyun/workspace/PoseEstimation/ViTPose_pytorch/vitpose-b-multi-coco.pth" # CKPT path
 gpu_ids: [0]
 launcher: 'none' # When distributed training ['none', 'pytorch', 'slurm', 'mpi']
 use_amp: True

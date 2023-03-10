@@ -1,6 +1,6 @@
 **/*.pth
 **/*.pt
 **/__pycache__
-**/COCO/
+**/coco/
 .DS_Store
 runs
