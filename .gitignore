@@ -5,3 +5,4 @@
 *.onnx
 .DS_Store
 runs
+ckpts

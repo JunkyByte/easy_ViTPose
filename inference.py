@@ -23,7 +23,8 @@ __all__ = ['inference']
             
 @torch.no_grad()
 def inference(img_path: Path, img_size: tuple[int, int],
-              model_cfg: dict, ckpt_path: Path, device: torch.device, save_result: bool=True) -> np.ndarray:
+              model_cfg: dict, ckpt_path: Path, device: torch.device,
+              save_result: bool=True, show_result: bool=False) -> np.ndarray:
     
     # Prepare model
     vit_pose = ViTPose(model_cfg)
@@ -61,35 +62,45 @@ def inference(img_path: Path, img_size: tuple[int, int],
     points = np.concatenate([points[:, :, ::-1], prob], axis=2)
     
     # Visualization 
-    if save_result:
+    if save_result or show_result:
         for pid, point in enumerate(points):
             img = np.array(img)[:, :, ::-1] # RGB to BGR for cv2 modules
             img = draw_points_and_skeleton(img.copy(), point, joints_dict()['coco']['skeleton'], person_index=pid,
                                            points_color_palette='gist_rainbow', skeleton_color_palette='jet',
                                            points_palette_samples=10, confidence_threshold=0.4)
+
+        if save_result:
             save_name = img_path.replace(".jpg", "_result.jpg")
             cv2.imwrite(save_name, img)
-    
+
+        if show_result:
+            cv2.imshow('result', img)
+            cv2.waitKey(0)
     return points
     
 
 if __name__ == "__main__":
-    from configs.ViTPose_base_coco_256x192 import model as model_cfg
-    from configs.ViTPose_base_coco_256x192 import data_cfg
-    
     parser = argparse.ArgumentParser()
-    parser.add_argument('--image-path', nargs='+', type=str, default='examples/sample.jpg', help='image path(s)')
+    parser.add_argument('--image-path', type=str, default='examples/sample.jpg', help='image path(s)')
+    parser.add_argument('--model', type=str, default='ckpts/vitpose-b-multi-coco.pth', help='ckpt path')
+    parser.add_argument('--model-name', type=str, default='b', help='[b: ViT-B, l: ViT-L, h: ViT-H]')
     args = parser.parse_args()
     
-    CUR_DIR = osp.dirname(__file__)
-    # CKPT_PATH = f"{CUR_DIR}/vitpose-b-multi-coco.pth"
-    CKPT_PATH = "/home/jaehyun/workspace/PoseEstimation/ViTPose_pytorch/runs/train/002/epoch010.pth"
+    CKPT_PATH = args.model
+
+    if args.model_name == 'b':
+        from configs.ViTPose_base_coco_256x192 import model as model_cfg
+        from configs.ViTPose_base_coco_256x192 import data_cfg
+    elif args.model_name == 'l':
+        from configs.ViTPose_large_coco_256x192 import model as model_cfg
+        from configs.ViTPose_large_coco_256x192 import data_cfg
+    elif args.model_name == 'h':
+        from configs.ViTPose_huge_coco_256x192 import model as model_cfg
+        from configs.ViTPose_huge_coco_256x192 import data_cfg
     
     img_size = data_cfg['image_size']
-    if type(args.image_path) != list:
-         args.image_path = [args.image_path]
-    for img_path in args.image_path:
-        print(img_path)
-        keypoints = inference(img_path=img_path, img_size=img_size, model_cfg=model_cfg, ckpt_path=CKPT_PATH, 
-                              device=torch.device("cuda") if torch.cuda.is_available() else torch.device('cpu'),
-                              save_result=True)
+    img_path = args.image_path
+    print(f'Running inference on {img_path}')
+    keypoints = inference(img_path=img_path, img_size=img_size, model_cfg=model_cfg, ckpt_path=CKPT_PATH, 
+                          device=torch.device("cuda") if torch.cuda.is_available() else torch.device('cpu'),
+                          save_result=False, show_result=True)
