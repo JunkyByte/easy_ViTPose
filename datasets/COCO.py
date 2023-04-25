@@ -106,15 +106,18 @@ class COCODataset(Dataset):
         self.heatmap_type = 'gaussian'
         self.pixel_std = 200  # I don't understand the meaning of pixel_std (=200) in the original implementation
 
-        self.num_joints = 17
-        self.num_joints_half_body = 8
-        
+        self.num_joints = 23
+        self.num_joints_half_body = 14
+
         # eye, ear, shoulder, elbow, wrist, hip, knee, ankle
-        self.flip_pairs = [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10], [11, 12], [13, 14], [15, 16]]
+        self.flip_pairs = [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10], [11, 12], [13, 14], [15, 16], [17, 20], [18, 21], [19, 22]]
         self.upper_body_ids = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        self.lower_body_ids = [11, 12, 13, 14, 15, 16]
-        self.joints_weight = np.array([1., 1., 1., 1., 1., 1., 1., 1.2, 1.2, 1.5, 1.5, 
-                                       1., 1., 1.2, 1.2, 1.5, 1.5]).reshape((self.num_joints, 1))
+        self.lower_body_ids = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]
+        self.joints_weight = np.array([1., 1., 1., 1., 1., 1., 1., 1.2, 1.2,
+                                       1.5, 1.5, 1., 1., 1.2, 1.2, 1.5, 1.5,
+                                       1.5, 1.5, 1.5, 1.5, 1.5,
+                                       1.5]).reshape((self.num_joints, 1))
+        # TODO: Add c-shoulder and c-hip
 
         self.transform = transforms.Compose([
             transforms.ToTensor(),
@@ -191,6 +194,9 @@ class COCODataset(Dataset):
                 joints = np.zeros((self.num_joints, 2), dtype=np.float)
                 joints_visibility = np.ones((self.num_joints, 2), dtype=np.float)
 
+                # Add foot data to keypoints
+                obj['keypoints'].extend(obj['foot_kpts'])
+
                 if self.use_gt_bboxes:
                     """ COCO pre-processing
 
@@ -249,6 +255,9 @@ class COCODataset(Dataset):
         # Load image
         try:
             image = np.array(Image.open(joints_data['imgPath']))
+            if image.ndim == 2:
+                # Some images are grayscale and will fail the trasform, convert to RGB
+                image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
         except:
             raise ValueError(f"Fail to read {joints_data['imgPath']}")
 

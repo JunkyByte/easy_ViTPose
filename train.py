@@ -41,7 +41,7 @@ def main(config_path, model_name):
         
     for k, v in cfg_yaml.items():
         if hasattr(cfg, k):
-            raise ValueError(f"Already exsist {k} in config")
+            raise ValueError(f"Already exists {k} in config")
         else:
             cfg.__setattr__(k, v)
 
@@ -107,12 +107,21 @@ def main(config_path, model_name):
     # Set model
     model = ViTPose(cfg.model)
     if cfg.resume_from:
-        model.load_state_dict(torch.load(cfg.resume_from)['state_dict'])
+        # Load ckpt partially
+        ckpt_state = torch.load(cfg.resume_from)['state_dict']
+        ckpt_state.pop('keypoint_head.final_layer.bias')
+        ckpt_state.pop('keypoint_head.final_layer.weight')
+        model.load_state_dict(ckpt_state, strict=False)
+
+        # freeze the backbone, leave the head to be finetuned
+        for p in model.backbone.parameters():
+            p.requires_grad_(False)
+        model.backbone.eval()  # TODO: Use the freeze from backbone so that sure is eval
     
     # Set dataset
     datasets_train = COCODataset(
         root_path=cfg.data_root, 
-        data_version="train_custom",
+        data_version="feet_train",
         is_train=True, 
         use_gt_bboxes=True,
         image_width=192, 
@@ -130,7 +139,7 @@ def main(config_path, model_name):
     
     datasets_valid = COCODataset(
         root_path=cfg.data_root, 
-        data_version="valid_custom",
+        data_version="feet_val",
         is_train=False, 
         use_gt_bboxes=True,
         image_width=192, 

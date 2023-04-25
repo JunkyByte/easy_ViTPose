@@ -31,13 +31,13 @@ lr_config = dict(
 total_epochs = 210
 target_type = 'GaussianHeatmap'
 channel_cfg = dict(
-    num_output_channels=17,
-    dataset_joints=17,
+    num_output_channels=23,
+    dataset_joints=23,
     dataset_channel=[
-        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22],
     ],
     inference_channel=[
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22
     ])
 
 # model settings
@@ -97,7 +97,7 @@ train_pipeline = [
     dict(type='TopDownRandomFlip', flip_prob=0.5),
     dict(
         type='TopDownHalfBodyTransform',
-        num_joints_half_body=8,
+        num_joints_half_body=14,
         prob_half_body=0.3),
     dict(
         type='TopDownGetRandomScaleRotation', rot_factor=40, scale_factor=0.5),
@@ -140,10 +140,10 @@ val_pipeline = [
 
 test_pipeline = val_pipeline
 
-data_root = 'datasets/coco'
+data_root = '/home/adryw/dataset/COCO17'
 data = dict(
     samples_per_gpu=32,
-    workers_per_gpu=4,
+    workers_per_gpu=6,
     val_dataloader=dict(samples_per_gpu=32),
     test_dataloader=dict(samples_per_gpu=32),
     train=dict(

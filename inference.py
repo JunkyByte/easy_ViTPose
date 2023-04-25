@@ -28,15 +28,14 @@ def inference(img_path: Path, img_size: tuple[int, int],
     
     # Prepare model
     vit_pose = ViTPose(model_cfg)
-    
    
-    ckpt = torch.load(ckpt_path)
+    ckpt = torch.load(ckpt_path, map_location='cpu')
     if 'state_dict' in ckpt:
         vit_pose.load_state_dict(ckpt['state_dict'])
     else:
         vit_pose.load_state_dict(ckpt)
     vit_pose.to(device)
-    print(f">>> Model loaded: {ckpt_path}")
+    print(f">>> Model loaded: {ckpt_path} on {device}")
     
     # Prepare input data
     img = Image.open(img_path)
@@ -49,6 +48,8 @@ def inference(img_path: Path, img_size: tuple[int, int],
          transforms.ToTensor()]
     )(img).unsqueeze(0).to(device)
     
+    # First warmup the model compilation
+    _ = vit_pose(img_tensor)
     
     # Feed to model
     tic = time()
@@ -84,6 +85,7 @@ if __name__ == "__main__":
     parser.add_argument('--image-path', type=str, default='examples/sample.jpg', help='image path(s)')
     parser.add_argument('--model', type=str, default='ckpts/vitpose-b-multi-coco.pth', help='ckpt path')
     parser.add_argument('--model-name', type=str, default='b', help='[b: ViT-B, l: ViT-L, h: ViT-H]')
+    parser.add_argument('--show', default=False, action='store_true')
     args = parser.parse_args()
     
     CKPT_PATH = args.model
@@ -103,4 +105,4 @@ if __name__ == "__main__":
     print(f'Running inference on {img_path}')
     keypoints = inference(img_path=img_path, img_size=img_size, model_cfg=model_cfg, ckpt_path=CKPT_PATH, 
                           device=torch.device("cuda") if torch.cuda.is_available() else torch.device('cpu'),
-                          save_result=False, show_result=True)
+                          save_result=False, show_result=args.show)
