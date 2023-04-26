@@ -26,7 +26,7 @@ lr_config = dict(
     warmup='linear',
     warmup_iters=100,
     warmup_ratio=0.001,
-    step=[3, 4])
+    step=[4])
 
 total_epochs = 5
 target_type = 'GaussianHeatmap'
