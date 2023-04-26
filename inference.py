@@ -56,6 +56,9 @@ def inference(img_path: Path, img_size: tuple[int, int],
     heatmaps = vit_pose(img_tensor).detach().cpu().numpy() # N, 17, h/4, w/4
     elapsed_time = time()-tic
     print(f">>> Output size: {heatmaps.shape} ---> {elapsed_time:.4f} sec. elapsed [{elapsed_time**-1: .1f} fps]\n")    
+
+    cv2.imshow('ss', heatmaps.sum(1)[0])
+    cv2.waitKey(0)
     
     # points = heatmap2coords(heatmaps=heatmaps, original_resolution=(org_h, org_w))
     points, prob = keypoints_from_heatmaps(heatmaps=heatmaps, center=np.array([[org_w//2, org_h//2]]), scale=np.array([[org_w, org_h]]),

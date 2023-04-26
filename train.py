@@ -114,9 +114,10 @@ def main(config_path, model_name):
         model.load_state_dict(ckpt_state, strict=False)
 
         # freeze the backbone, leave the head to be finetuned
-        for p in model.backbone.parameters():
-            p.requires_grad_(False)
-        model.backbone.eval()  # TODO: Use the freeze from backbone so that sure is eval
+        model.backbone.frozen_stages = model.backbone.depth - 1
+        model.backbone.freeze_ffn = True
+        model.backbone.freeze_attn = True
+        model.backbone._freeze_stages()
     
     # Set dataset
     datasets_train = COCODataset(

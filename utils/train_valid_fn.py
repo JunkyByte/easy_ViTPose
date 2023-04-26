@@ -68,7 +68,7 @@ def train_model(model: nn.Module, datasets_train: Dataset, datasets_valid: Datas
             find_unused_parameters=find_unused_parameters)
     else:
         model = DataParallel(model, device_ids=cfg.gpu_ids)
-    
+
     # Loss function
     criterion = JointsMSELoss(use_target_weight=cfg.model['keypoint_head']['loss_keypoint']['use_target_weight'])
     

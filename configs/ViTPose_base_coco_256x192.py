@@ -8,7 +8,7 @@ optimizer = dict(type='AdamW', lr=5e-4, betas=(0.9, 0.999), weight_decay=0.1,
                  constructor='LayerDecayOptimizerConstructor', 
                  paramwise_cfg=dict(
                                     num_layers=12, 
-                                    layer_decay_rate=0.75,
+                                    layer_decay_rate=1 - 1e-4,
                                     custom_keys={
                                             'bias': dict(decay_multi=0.),
                                             'pos_embed': dict(decay_mult=0.),
@@ -24,11 +24,11 @@ optimizer_config = dict(grad_clip=dict(max_norm=1., norm_type=2))
 lr_config = dict(
     policy='step',
     warmup='linear',
-    warmup_iters=500,
+    warmup_iters=100,
     warmup_ratio=0.001,
-    step=[170, 200])
+    step=[3, 4])
 
-total_epochs = 210
+total_epochs = 5
 target_type = 'GaussianHeatmap'
 channel_cfg = dict(
     num_output_channels=23,
@@ -141,11 +141,12 @@ val_pipeline = [
 test_pipeline = val_pipeline
 
 data_root = '/home/adryw/dataset/COCO17'
+# data_root = 'annotations'
 data = dict(
-    samples_per_gpu=32,
+    samples_per_gpu=128,
     workers_per_gpu=6,
-    val_dataloader=dict(samples_per_gpu=32),
-    test_dataloader=dict(samples_per_gpu=32),
+    val_dataloader=dict(samples_per_gpu=128),
+    test_dataloader=dict(samples_per_gpu=128),
     train=dict(
         type='TopDownCocoDataset',
         ann_file=f'{data_root}/annotations/person_keypoints_train2017.json',

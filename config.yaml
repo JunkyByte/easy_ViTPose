@@ -1,7 +1,7 @@
 # Train config ---------------------------------------
 log_level: logging.INFO
 seed: 0
-deterministic: True # whether not to evaluate the checkpoint during training
+deterministic: True
 cudnn_benchmark: True # Use cudnn 
 resume_from: "ckpts/vitpose-b-multi-coco_vanilla.pth" # CKPT path
 # resume_from: False
@@ -9,8 +9,6 @@ gpu_ids: [0]
 launcher: 'none' # When distributed training ['none', 'pytorch', 'slurm', 'mpi']
 use_amp: True
 validate: True
-
-autoscale_lr: True # automatically scale lr with the number of gpus
-
+autoscale_lr: False
 dist_params:
   ...
