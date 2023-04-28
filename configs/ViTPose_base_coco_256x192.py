@@ -24,21 +24,19 @@ optimizer_config = dict(grad_clip=dict(max_norm=1., norm_type=2))
 lr_config = dict(
     policy='step',
     warmup='linear',
-    warmup_iters=100,
+    warmup_iters=200,
     warmup_ratio=0.001,
     step=[4])
 
 total_epochs = 5
 target_type = 'GaussianHeatmap'
 channel_cfg = dict(
-    num_output_channels=23,
-    dataset_joints=23,
-    dataset_channel=[
-        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22],
-    ],
-    inference_channel=[
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22
-    ])
+    num_output_channels=25,
+    dataset_joints=25,
+    dataset_channel=[[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                      16, 17, 18, 19, 20, 21, 22, 23, 24], ],
+    inference_channel=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                       16, 17, 18, 19, 20, 21, 22, 23, 24])
 
 # model settings
 model = dict(
@@ -97,7 +95,7 @@ train_pipeline = [
     dict(type='TopDownRandomFlip', flip_prob=0.5),
     dict(
         type='TopDownHalfBodyTransform',
-        num_joints_half_body=14,
+        num_joints_half_body=15,
         prob_half_body=0.3),
     dict(
         type='TopDownGetRandomScaleRotation', rot_factor=40, scale_factor=0.5),

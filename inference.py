@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from torchvision.transforms import transforms
 
-# TODO: This is hacky, but it's also hacky
+# TODO: This is hacky, but it's also hacky therefore quite hacky
 yolo = torch.hub.load("ultralytics/yolov5", "yolov5s")
 yolo.classes = [0]
 import sys
@@ -78,10 +78,6 @@ def inference(img: np.ndarray, target_size: tuple[int, int], model,
     org_h, org_w = img.shape[:2]
     img_tensor = transforms.Compose([transforms.ToTensor(),
                                      transforms.Resize((target_size[1], target_size[0])),
-                                     # transforms.Normalize(mean=[0.485, 0.456, # TODO ?
-                                     #                            0.406],
-                                     #                      std=[0.229, 0.224,
-                                     #                           0.225]),
                                      ])(img).unsqueeze(0).to(device)
 
     # Feed to model
@@ -168,7 +164,7 @@ if __name__ == "__main__":
 
         # Transform keypoints to original image
         k[:, :2] += bbox[:2][::-1] - [top_pad, left_pad]
-        keypoints.append(k)
+        keypoints.append(k.tolist())
 
         if args.show or args.save_img:
             img = np.array(img)[:, :, ::-1]  # RGB to BGR for cv2 modules
@@ -193,7 +189,8 @@ if __name__ == "__main__":
         print('>>> Saving output json')
         save_name = os.path.basename(input_path).replace(ext, "_result.json")
         with open(os.path.join(args.output_path, save_name), 'w') as f:
-            out = {ith: k.tolist() for ith, k in enumerate(keypoints)}
+            out = {'keypoints': keypoints.tolist()}
+            out['skeleton'] = joints_dict()['coco']['keypoints']
             json.dump(out, f)
 
     cv2.destroyAllWindows()

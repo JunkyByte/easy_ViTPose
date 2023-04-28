@@ -106,19 +106,18 @@ class COCODataset(Dataset):
         self.heatmap_type = 'gaussian'
         self.pixel_std = 200  # I don't understand the meaning of pixel_std (=200) in the original implementation
 
-        self.num_joints = 23
-        self.num_joints_half_body = 14
+        self.num_joints = 25
+        self.num_joints_half_body = 15
 
         # eye, ear, shoulder, elbow, wrist, hip, knee, ankle
-        self.flip_pairs = [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10], [11, 12],
-                           [13, 14], [15, 16], [17, 20], [18, 21], [19, 22]]
-        self.upper_body_ids = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        self.flip_pairs = [[1, 2], [3, 4], [6, 7], [8, 9], [10, 11], [12, 13],
+                           [15, 16], [17, 18], [19, 22], [20, 23], [21, 24]]
+        self.upper_body_ids = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
         self.lower_body_ids = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]
-        self.joints_weight = np.array([1., 1., 1., 1., 1., 1., 1., 1.2, 1.2,
-                                       1.5, 1.5, 1., 1., 1.2, 1.2, 1.5, 1.5,
+        self.joints_weight = np.array([1., 1., 1., 1., 1., 1., 1., 1., 1.2, 1.2,
+                                       1.5, 1.5, 1., 1., 1., 1.2, 1.2, 1.5, 1.5,
                                        1.5, 1.5, 1.5, 1.5, 1.5,
                                        1.5]).reshape((self.num_joints, 1))
-        # TODO: Add c-shoulder and c-hip
 
         self.transform = transforms.Compose([
             transforms.ToTensor(),
@@ -210,26 +209,44 @@ class COCODataset(Dataset):
                         continue
                     """
 
-                    for pt in range(self.num_joints):
-                        joints[pt, 0] = obj['keypoints'][pt * 3 + 0]
-                        joints[pt, 1] = obj['keypoints'][pt * 3 + 1]
-                        t_vis = int(np.clip(obj['keypoints'][pt * 3 + 2], 0, 1))  # ToDo check correctness
+                    # Not all joints are already present, skip them
+                    vjoints = list(range(self.num_joints))
+                    vjoints.remove(5)
+                    vjoints.remove(14)
+
+                    for idx, pt in enumerate(vjoints):
+                        if pt == 5 or pt == 14:
+                            continue  # Neck and hip are manually filled
+                        joints[pt, 0] = obj['keypoints'][idx * 3 + 0]
+                        joints[pt, 1] = obj['keypoints'][idx * 3 + 1]
+                        t_vis = int(np.clip(obj['keypoints'][idx * 3 + 2], 0, 1))
                         """
                         - COCO:
                           if visibility == 0 -> keypoint is not in the image.
-                          if visibility == 1 -> keypoint is in the image BUT not visible (e.g. behind an object).
-                          if visibility == 2 -> keypoint looks clearly (i.e. it is not hidden).
+                          if visibility == 1 -> keypoint is in the image BUT not visible
+                                                (e.g. behind an object).
+                          if visibility == 2 -> keypoint looks clearly
+                                                (i.e. it is not hidden).
                         """
                         joints_visibility[pt, 0] = t_vis
                         joints_visibility[pt, 1] = t_vis
 
                 center, scale = self._box2cs(obj['clean_bbox'][:4])
 
+                # Add neck and c-hip (check utils/visualization.py for keypoints)
+                joints[5, 0] = (joints[6, 0] + joints[7, 0]) / 2
+                joints[5, 1] = (joints[6, 1] + joints[7, 1]) / 2
+                joints_visibility[5, :] = min(joints_visibility[6, 0],
+                                              joints_visibility[7, 0])
+                joints[14, 0] = (joints[12, 0] + joints[13, 0]) / 2
+                joints[14, 1] = (joints[12, 1] + joints[13, 1]) / 2
+                joints_visibility[14, :] = min(joints_visibility[12, 0],
+                                               joints_visibility[13, 0])
+
                 self.data.append({
                     'imgId': imgId,
                     'annId': obj['id'],
                     'imgPath': f"{self.root_path}/{self.data_version}/{imgId:012d}.jpg",
-                    #'imgPath': os.path.join(self.root_path, self.data_version, 'id_%s.jpg' % imgId),
                     'center': center,
                     'scale': scale,
                     'joints': joints,
