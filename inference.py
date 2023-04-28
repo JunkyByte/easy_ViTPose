@@ -1,16 +1,19 @@
 import argparse
 import json
 import os
-import os.path as osp
-from pathlib import Path
-from time import time
 
 from PIL import Image
 import cv2
 import numpy as np
 import torch
-from torch import Tensor
 from torchvision.transforms import transforms
+
+# TODO: This is hacky, but it's also hacky
+yolo = torch.hub.load("ultralytics/yolov5", "yolov5s")
+yolo.classes = [0]
+import sys
+sys.modules.pop('models')
+sys.modules.pop('utils')
 
 from models.model import ViTPose
 from utils.top_down_eval import keypoints_from_heatmaps
@@ -24,6 +27,8 @@ def pad_image(image: np.ndarray, aspect_ratio: float) -> np.ndarray:
     image_height, image_width = image.shape[:2]
     current_aspect_ratio = image_width / image_height
 
+    left_pad = 0
+    top_pad = 0
     # Determine whether to pad horizontally or vertically
     if current_aspect_ratio < aspect_ratio:
         # Pad horizontally
@@ -31,7 +36,7 @@ def pad_image(image: np.ndarray, aspect_ratio: float) -> np.ndarray:
         pad_width = target_width - image_width
         left_pad = pad_width // 2
         right_pad = pad_width - left_pad
-        
+
         padded_image = np.pad(image, pad_width=((0, 0), (left_pad, right_pad), (0, 0)), mode='constant')
     else:
         # Pad vertically
@@ -39,10 +44,9 @@ def pad_image(image: np.ndarray, aspect_ratio: float) -> np.ndarray:
         pad_height = target_height - image_height
         top_pad = pad_height // 2
         bottom_pad = pad_height - top_pad
-        
+
         padded_image = np.pad(image, pad_width=((top_pad, bottom_pad), (0, 0), (0, 0)), mode='constant')
-    
-    return padded_image
+    return padded_image, (left_pad, top_pad)
 
 
 class VideoReader(object):
@@ -136,30 +140,45 @@ if __name__ == "__main__":
 
     # Load the image / video reader
     assert os.path.isfile(input_path), 'The input file does not exist'
-    if input_path[input_path.rfind('.'):] in ['mp4']:
+    wait = 0
+    if input_path[input_path.rfind('.') + 1:] in ['mp4']:
         reader = VideoReader(input_path)
+        wait = 15
     else:
         reader = [np.array(Image.open(input_path))]
 
     print(f'Running inference on {input_path}')
+
     keypoints = []
     for img in reader:
-        img = pad_image(img, 3 / 4)
-        k = inference(img=img, target_size=img_size, model=vit_pose,
+
+        # First use YOLOv5 for detection  # TODO: Size of inference 320
+        results = yolo(img, size=320).pandas().xyxy[0].to_numpy()
+        bbox = results[0, :4].astype(np.float64).round().astype(int)
+        bbox[[0, 2]] = np.clip(bbox[[0, 2]] + [-10, 10], 0, img.shape[1])  # slightly bigger box
+        bbox[[1, 3]] = np.clip(bbox[[1, 3]] + [-10, 10], 0, img.shape[0])
+
+        # Crop image and pad to 3/4 aspect ratio
+        img_inf = img[bbox[1]:bbox[3], bbox[0]:bbox[2]]
+        img_inf, (left_pad, top_pad) = pad_image(img_inf, 3 / 4)
+
+        k = inference(img=img_inf, target_size=img_size, model=vit_pose,
                       device=torch.device("cuda") if torch.cuda.is_available()
-                      else torch.device('cpu'))
+                      else torch.device('cpu'))[0]
+
+        # Transform keypoints to original image
+        k[:, :2] += bbox[:2][::-1] - [top_pad, left_pad]
         keypoints.append(k)
 
         if args.show or args.save_img:
-            for pid, point in enumerate(k):
-                img = np.array(img)[:, :, ::-1]  # RGB to BGR for cv2 modules
-                img = draw_points_and_skeleton(img.copy(), point,
-                                               joints_dict()['coco']['skeleton'],
-                                               person_index=pid,
-                                               points_color_palette='gist_rainbow',
-                                               skeleton_color_palette='jet',
-                                               points_palette_samples=10,
-                                               confidence_threshold=0.4)
+            img = np.array(img)[:, :, ::-1]  # RGB to BGR for cv2 modules
+            img = draw_points_and_skeleton(img.copy(), k,
+                                           joints_dict()['coco']['skeleton'],
+                                           person_index=0,
+                                           points_color_palette='gist_rainbow',
+                                           skeleton_color_palette='jet',
+                                           points_palette_samples=10,
+                                           confidence_threshold=0.4)
 
             if args.save_img:
                 save_name = os.path.basename(input_path).replace(ext, f"_result{ext}")
@@ -167,13 +186,14 @@ if __name__ == "__main__":
 
             if args.show:
                 cv2.imshow('preview', img)
-                cv2.waitKey(0)
+                if cv2.waitKey(wait) == ord('q'):
+                    break
 
     if args.save_json:
         print('>>> Saving output json')
-        save_name = os.path.basename(input_path).replace(ext, f"_result.json")
+        save_name = os.path.basename(input_path).replace(ext, "_result.json")
         with open(os.path.join(args.output_path, save_name), 'w') as f:
-            out = [{p: v.tolist() for p, v in enumerate(k)} for k in keypoints]
+            out = {ith: k.tolist() for ith, k in enumerate(keypoints)}
             json.dump(out, f)
 
     cv2.destroyAllWindows()
