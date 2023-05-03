@@ -8,10 +8,11 @@ import cv2
 import time
 import numpy as np
 import torch
+import onnxruntime
 from torchvision.transforms import transforms
 
 # TODO: This is hacky, but it's also hacky therefore quite hacky
-yolo = torch.hub.load("ultralytics/yolov5", "yolov5s")
+yolo = torch.hub.load("ultralytics/yolov5", "custom", "yolov5s.onnx")
 yolo.classes = [0]
 import sys
 sys.modules.pop('models')
@@ -94,6 +95,27 @@ def inference(img: np.ndarray, target_size: tuple[int, int], model,
     return points
 
 
+def inference_onnx(img: np.ndarray, target_size: tuple[int, int], ort_session,
+                   device: torch.device) -> np.ndarray:
+
+    # Prepare input data
+    org_h, org_w = img.shape[:2]
+    img_input = cv2.resize(img, target_size, interpolation=cv2.INTER_LINEAR)
+    img_input = img_input.astype(np.float32).transpose(2, 0, 1)[None, ...] / 255
+
+    # Feed to model
+    ort_inputs = {ort_session.get_inputs()[0].name: img_input}
+    heatmaps = ort_session.run(None, ort_inputs)[0]
+    points, prob = keypoints_from_heatmaps(heatmaps=heatmaps,
+                                           center=np.array([[org_w // 2,
+                                                             org_h // 2]]),
+                                           scale=np.array([[org_w, org_h]]),
+                                           unbiased=True, use_udp=True)
+
+    points = np.concatenate([points[:, :, ::-1], prob], axis=2)
+    return points
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--input', type=str, default='examples/sample.jpg',
@@ -126,15 +148,27 @@ if __name__ == "__main__":
 
     # Load the model
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device('cpu')
-    vit_pose = ViTPose(model_cfg)
 
-    ckpt = torch.load(args.model, map_location='cpu')
-    if 'state_dict' in ckpt:
-        vit_pose.load_state_dict(ckpt['state_dict'])
+    use_onnx = args.model.endswith('onnx')
+
+    if use_onnx:
+        vit_pose = onnxruntime.InferenceSession(args.model,
+                                                providers=['CUDAExecutionProvider',
+                                                           'CPUExecutionProvider'])
+        inf_fn = inference_onnx
     else:
-        vit_pose.load_state_dict(ckpt)
-    vit_pose.to(device)
-    print(f">>> Model loaded: {args.model} on {device}")
+        vit_pose = ViTPose(model_cfg)
+        vit_pose.eval()
+
+        ckpt = torch.load(args.model, map_location='cpu')
+        if 'state_dict' in ckpt:
+            vit_pose.load_state_dict(ckpt['state_dict'])
+        else:
+            vit_pose.load_state_dict(ckpt)
+        vit_pose.to(device)
+        inf_fn = inference
+
+    print(f">>> Model loaded: {args.model}")
 
     # Load the image / video reader
     assert os.path.isfile(input_path), 'The input file does not exist'
@@ -178,8 +212,7 @@ if __name__ == "__main__":
         fps_yolo.append(1 / (time.time() - t0))
 
         t0 = time.time()
-        k = inference(img=img_inf, target_size=img_size, model=vit_pose,
-                      device=device)[0]
+        k = inf_fn(img_inf, img_size, vit_pose, device)[0]
 
         # Transform keypoints to original image
         k[:, :2] += bbox[:2][::-1] - [top_pad, left_pad]
