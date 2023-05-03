@@ -171,9 +171,14 @@ if __name__ == "__main__":
     print(f">>> Model loaded: {args.model}")
 
     # Load the image / video reader
-    assert os.path.isfile(input_path), 'The input file does not exist'
+    try:  # Check if is webcam
+        int(input_path)
+        is_video = True
+    except ValueError:
+        assert os.path.isfile(input_path), 'The input file does not exist'
+        is_video = input_path[input_path.rfind('.') + 1:] in ['mp4']
+
     wait = 0
-    is_video = input_path[input_path.rfind('.') + 1:] in ['mp4']
     if is_video:
         reader = VideoReader(input_path)
         wait = 15
@@ -197,41 +202,45 @@ if __name__ == "__main__":
     fps_yolo = deque([], maxlen=30)
     fps_vitpose = deque([], maxlen=30)
     for ith, img in enumerate(reader):
-        t0 = time.time()
-
         # First use YOLOv5 for detection  # TODO: Size of inference 320
+        t0 = time.time()
         results = yolo(img, size=320).pandas().xyxy[0].to_numpy()
-        bbox = results[0, :4].astype(np.float64).round().astype(int)
-        bbox[[0, 2]] = np.clip(bbox[[0, 2]] + [-10, 10], 0, img.shape[1])  # slightly bigger box
-        bbox[[1, 3]] = np.clip(bbox[[1, 3]] + [-10, 10], 0, img.shape[0])
-
-        # Crop image and pad to 3/4 aspect ratio
-        img_inf = img[bbox[1]:bbox[3], bbox[0]:bbox[2]]
-        img_inf, (left_pad, top_pad) = pad_image(img_inf, 3 / 4)
-
         fps_yolo.append(1 / (time.time() - t0))
 
-        t0 = time.time()
-        k = inf_fn(img_inf, img_size, vit_pose, device)[0]
+        frame_keypoints = []
+        for result in results:
+            if result[4] < 0.4:  # TODO: Confidence finetuning
+                continue
+            bbox = result[:4].astype(np.float64).round().astype(int)
+            bbox[[0, 2]] = np.clip(bbox[[0, 2]] + [-10, 10], 0, img.shape[1])  # slightly bigger box
+            bbox[[1, 3]] = np.clip(bbox[[1, 3]] + [-10, 10], 0, img.shape[0])
 
-        # Transform keypoints to original image
-        k[:, :2] += bbox[:2][::-1] - [top_pad, left_pad]
-        keypoints.append(k.tolist())
+            # Crop image and pad to 3/4 aspect ratio
+            img_inf = img[bbox[1]:bbox[3], bbox[0]:bbox[2]]
+            img_inf, (left_pad, top_pad) = pad_image(img_inf, 3 / 4)
 
-        fps_vitpose.append(1 / (time.time() - t0))
+            t0 = time.time()
+            k = inf_fn(img_inf, img_size, vit_pose, device)[0]
+            fps_vitpose.append(1 / (time.time() - t0))
+
+            # Transform keypoints to original image
+            k[:, :2] += bbox[:2][::-1] - [top_pad, left_pad]
+            frame_keypoints.append(k)
         if ith % 30 == 0:
             print(f'>>> YOLO fps: {np.mean(fps_yolo)}')
             print(f'>>> VITPOSE fps: {np.mean(fps_vitpose)}')
 
+        keypoints.append([v.tolist() for v in frame_keypoints])  # TODO
         if args.show or args.save_img:
-            img = np.array(img)[:, :, ::-1]  # RGB to BGR for cv2 modules
-            img = draw_points_and_skeleton(img.copy(), k,
-                                           joints_dict()['coco']['skeleton'],
-                                           person_index=0,
-                                           points_color_palette='gist_rainbow',
-                                           skeleton_color_palette='jet',
-                                           points_palette_samples=10,
-                                           confidence_threshold=0.4)
+            img = np.array(img)[:, :, ::-1].copy()  # RGB to BGR for cv2 modules
+            for k in frame_keypoints:
+                img = draw_points_and_skeleton(img, k,
+                                               joints_dict()['coco']['skeleton'],
+                                               person_index=0,
+                                               points_color_palette='gist_rainbow',
+                                               skeleton_color_palette='jet',
+                                               points_palette_samples=10,
+                                               confidence_threshold=0.4)
 
             if args.save_img:
                 if is_video:
