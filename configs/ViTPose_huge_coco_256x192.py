@@ -4,11 +4,11 @@
 # ]
 evaluation = dict(interval=10, metric='mAP', save_best='AP')
 
-optimizer = dict(type='AdamW', lr=5e-4, betas=(0.9, 0.999), weight_decay=0.1,
+optimizer = dict(type='AdamW', lr=1e-3, betas=(0.9, 0.999), weight_decay=0.1,
                  constructor='LayerDecayOptimizerConstructor', 
                  paramwise_cfg=dict(
                                     num_layers=32, 
-                                    layer_decay_rate=0.85,
+                                    layer_decay_rate=1 - 2e-4,
                                     custom_keys={
                                             'bias': dict(decay_multi=0.),
                                             'pos_embed': dict(decay_mult=0.),
@@ -24,20 +24,18 @@ optimizer_config = dict(grad_clip=dict(max_norm=1., norm_type=2))
 lr_config = dict(
     policy='step',
     warmup='linear',
-    warmup_iters=500,
+    warmup_iters=300,
     warmup_ratio=0.001,
-    step=[170, 200])
-total_epochs = 210
+    step=[4])
+total_epochs = 4
 target_type = 'GaussianHeatmap'
 channel_cfg = dict(
-    num_output_channels=17,
-    dataset_joints=17,
-    dataset_channel=[
-        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
-    ],
-    inference_channel=[
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-    ])
+    num_output_channels=25,
+    dataset_joints=25,
+    dataset_channel=[[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                      16, 17, 18, 19, 20, 21, 22, 23, 24], ],
+    inference_channel=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                       16, 17, 18, 19, 20, 21, 22, 23, 24])
 
 # model settings
 model = dict(
@@ -96,7 +94,7 @@ train_pipeline = [
     dict(type='TopDownRandomFlip', flip_prob=0.5),
     dict(
         type='TopDownHalfBodyTransform',
-        num_joints_half_body=8,
+        num_joints_half_body=15,
         prob_half_body=0.3),
     dict(
         type='TopDownGetRandomScaleRotation', rot_factor=40, scale_factor=0.5),
@@ -139,12 +137,12 @@ val_pipeline = [
 
 test_pipeline = val_pipeline
 
-data_root = 'datasets/coco'
+data_root = '/home/adryw/dataset/COCO17'
 data = dict(
     samples_per_gpu=64,
-    workers_per_gpu=4,
-    val_dataloader=dict(samples_per_gpu=32),
-    test_dataloader=dict(samples_per_gpu=32),
+    workers_per_gpu=6,
+    val_dataloader=dict(samples_per_gpu=128),
+    test_dataloader=dict(samples_per_gpu=128),
     train=dict(
         type='TopDownCocoDataset',
         ann_file=f'{data_root}/annotations/person_keypoints_train2017.json',

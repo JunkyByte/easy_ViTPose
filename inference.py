@@ -3,7 +3,9 @@ import json
 import os
 
 from PIL import Image
+from collections import deque
 import cv2
+import time
 import numpy as np
 import torch
 from torchvision.transforms import transforms
@@ -137,16 +139,31 @@ if __name__ == "__main__":
     # Load the image / video reader
     assert os.path.isfile(input_path), 'The input file does not exist'
     wait = 0
-    if input_path[input_path.rfind('.') + 1:] in ['mp4']:
+    is_video = input_path[input_path.rfind('.') + 1:] in ['mp4']
+    if is_video:
         reader = VideoReader(input_path)
         wait = 15
+        if args.save_img:
+            cap = cv2.VideoCapture(input_path)
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            ret, frame = cap.read()
+            cap.release()
+            assert ret
+            assert fps > 0
+            output_size = frame.shape[:2][::-1]
+            save_name = os.path.basename(input_path).replace(ext, f"_result{ext}")
+            out_writer = cv2.VideoWriter(os.path.join(args.output_path, save_name),
+                                         cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'),
+                                         fps, output_size)
     else:
         reader = [np.array(Image.open(input_path))]
 
     print(f'Running inference on {input_path}')
-
     keypoints = []
-    for img in reader:
+    fps_yolo = deque([], maxlen=30)
+    fps_vitpose = deque([], maxlen=30)
+    for ith, img in enumerate(reader):
+        t0 = time.time()
 
         # First use YOLOv5 for detection  # TODO: Size of inference 320
         results = yolo(img, size=320).pandas().xyxy[0].to_numpy()
@@ -158,13 +175,20 @@ if __name__ == "__main__":
         img_inf = img[bbox[1]:bbox[3], bbox[0]:bbox[2]]
         img_inf, (left_pad, top_pad) = pad_image(img_inf, 3 / 4)
 
+        fps_yolo.append(1 / (time.time() - t0))
+
+        t0 = time.time()
         k = inference(img=img_inf, target_size=img_size, model=vit_pose,
-                      device=torch.device("cuda") if torch.cuda.is_available()
-                      else torch.device('cpu'))[0]
+                      device=device)[0]
 
         # Transform keypoints to original image
         k[:, :2] += bbox[:2][::-1] - [top_pad, left_pad]
         keypoints.append(k.tolist())
+
+        fps_vitpose.append(1 / (time.time() - t0))
+        if ith % 30 == 0:
+            print(f'>>> YOLO fps: {np.mean(fps_yolo)}')
+            print(f'>>> VITPOSE fps: {np.mean(fps_vitpose)}')
 
         if args.show or args.save_img:
             img = np.array(img)[:, :, ::-1]  # RGB to BGR for cv2 modules
@@ -177,8 +201,11 @@ if __name__ == "__main__":
                                            confidence_threshold=0.4)
 
             if args.save_img:
-                save_name = os.path.basename(input_path).replace(ext, f"_result{ext}")
-                cv2.imwrite(os.path.join(args.output_path, save_name), img)
+                if is_video:
+                    out_writer.write(img)
+                else:
+                    save_name = os.path.basename(input_path).replace(ext, f"_result{ext}")
+                    cv2.imwrite(os.path.join(args.output_path, save_name), img)
 
             if args.show:
                 cv2.imshow('preview', img)
@@ -193,4 +220,6 @@ if __name__ == "__main__":
             out['skeleton'] = joints_dict()['coco']['keypoints']
             json.dump(out, f)
 
+    if is_video and args.save_img:
+        out_writer.release()
     cv2.destroyAllWindows()
