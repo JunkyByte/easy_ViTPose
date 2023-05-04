@@ -6,6 +6,8 @@
 ## Accurate 2d human pose estimation, finetuned on 25 keypoints COCO skeleton + feet  
 ### Easy to use SOTA `ViTPose` [Y. Xu et al., 2022] models for fast inference.  
 
+This is a work in progress, feel free to contribute.
+
 ### Results
 
 ![resimg](https://user-images.githubusercontent.com/24314647/236281199-98e45ab5-2a18-45b7-ba5c-36bdec4450f4.png)
@@ -67,6 +69,7 @@ Check `datasets/COCO.py`, `config.yaml` and `train.py` for details.
 ## TODO:
 - requirements.txt
 - General cleanup
+- Tensorrt version of yolo (had some problems)
 
 ## Reference
 This code is substantially a fork of [jaehyunnn/ViTPose_pytorch](https://github.com/jaehyunnn/ViTPose_pytorch), without Jaehyunnn work this repo would not be possible. Thanks to the VitPose authors and their official implementation [ViTAE-Transformer/ViTPose](https://github.com/ViTAE-Transformer/ViTPose).
