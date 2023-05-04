@@ -32,7 +32,7 @@ Tensorrt:
 - cpu / gpu support
 
 ## Usage
-- Download the models from [Huggingface](https://huggingface.co/JunkyByte/easy_ViTPose)
+- Download the models from [Huggingface](https://huggingface.co/JunkyByte/easy_ViTPose)  
 Right now the yolo models are loaded from same folder of `inference.py` so place them there :)
 
 ```bash
@@ -55,9 +55,10 @@ optional arguments:
   --show-yolo           preview yolo result
   --save-img            save image result
   --save-json           save json result```
+```
 
-### | **Finetuning**
-Finetuning is run with `train.py` on COCO + feet.  
+## Finetuning
+Finetuning is done with `train.py` on COCO + feet.  
 Check `datasets/COCO.py`, `config.yaml` and `train.py` for details.
 
 ---
