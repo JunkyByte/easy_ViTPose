@@ -55,7 +55,7 @@ optional arguments:
   --show                preview result
   --show-yolo           preview yolo result
   --save-img            save image result
-  --save-json           save json result```
+  --save-json           save json result
 ```
 
 ## Finetuning
@@ -63,5 +63,10 @@ Finetuning is done with `train.py` on COCO + feet.
 Check `datasets/COCO.py`, `config.yaml` and `train.py` for details.
 
 ---
+
+## TODO:
+- requirements.txt
+- General cleanup
+
 ## Reference
 This code is substantially a fork of [jaehyunnn/ViTPose_pytorch](https://github.com/jaehyunnn/ViTPose_pytorch), without Jaehyunnn work this repo would not be possible. Thanks to the VitPose authors and their official implementation [ViTAE-Transformer/ViTPose](https://github.com/ViTAE-Transformer/ViTPose).
