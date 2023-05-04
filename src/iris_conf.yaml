@@ -1,0 +1,9 @@
+origin: 'local'
+origin_path: '~/Documents/easy_ViTPose/'
+dest: 'adryw@10.243.42.43'
+dest_path: '/home/adryw/Documents/easy_ViTPose/'
+mirror: false
+pattern: '*'
+ignore_pattern: '.git/ annotations/ runs/ ckpts/ outputs/'
+origin_jump: null
+dest_jump: null
