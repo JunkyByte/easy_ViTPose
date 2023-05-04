@@ -3,9 +3,15 @@
 <img src="https://user-images.githubusercontent.com/24314647/236082274-b25a70c8-9267-4375-97b0-eddf60a7dfc6.png" width=375> easy_ViTPose
 </p>
 
-
-## Hackable 2d human pose estimation, finetuned on 25 keypoints COCO skeleton + feet  
+## Accurate 2d human pose estimation, finetuned on 25 keypoints COCO skeleton + feet  
 ### Easy to use SOTA `ViTPose` [Y. Xu et al., 2022] models for fast inference.  
+
+### Features
+
+- Image / Video / Webcam support
+- Torch / ONNX / Tensorrt models
+- 4 ViTPose architectures with different sizes
+- cpu / gpu support
 
 ## Usage
 ### | **Inference**
