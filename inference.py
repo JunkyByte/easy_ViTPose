@@ -4,15 +4,32 @@ import os
 
 from PIL import Image
 from collections import deque
+from functools import partial
 import cv2
 import time
 import numpy as np
 import torch
-import onnxruntime
 from torchvision.transforms import transforms
 
+try:  # Add bools -> error stack
+    import pycuda.driver as cuda
+    import pycuda.autoinit
+    import utils_engine as engine_utils
+    import tensorrt as trt
+    has_trt = True
+except ModuleNotFoundError:
+    pass
+
+try:
+    import onnxruntime
+    has_onnx = True
+except ModuleNotFoundError:
+    pass
+
+
 # TODO: This is hacky, but it's also hacky therefore quite hacky
-yolo = torch.hub.load("ultralytics/yolov5", "custom", "yolov5s.onnx")
+yolo_model = 'yolov5s' + ('.onnx' if has_onnx else '.pt')
+yolo = torch.hub.load("ultralytics/yolov5", "custom", yolo_model)
 yolo.classes = [0]
 import sys
 sys.modules.pop('models')
@@ -116,6 +133,30 @@ def inference_onnx(img: np.ndarray, target_size: tuple[int, int], ort_session,
     return points
 
 
+def inference_trt(img: np.ndarray, target_size: tuple[int, int], trt_state,
+                  device: torch.device) -> np.ndarray:
+
+    # Prepare input data
+    org_h, org_w = img.shape[:2]
+    img_input = cv2.resize(img, target_size, interpolation=cv2.INTER_LINEAR)
+    img_input = img_input.astype(np.float32).transpose(2, 0, 1)[None, ...] / 255
+
+    # Copy the data to appropriate memory
+    np.copyto(trt_state['inputs'][0].host, img_input.ravel())
+
+    # Feed to model
+    heatmaps = trt_state['inf_helper']()[0]
+    heatmaps = heatmaps.reshape(1, 25, img_input.shape[2] // 4, img_input.shape[3] // 4)
+    points, prob = keypoints_from_heatmaps(heatmaps=heatmaps,
+                                           center=np.array([[org_w // 2,
+                                                             org_h // 2]]),
+                                           scale=np.array([[org_w, org_h]]),
+                                           unbiased=True, use_udp=True)
+
+    points = np.concatenate([points[:, :, ::-1], prob], axis=2)
+    return points
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--input', type=str, default='examples/sample.jpg',
@@ -124,8 +165,11 @@ if __name__ == "__main__":
     parser.add_argument('--model', type=str, required=True, help='ckpt path')
     parser.add_argument('--model-name', type=str, required=True,
                         help='[s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H]')
+    parser.add_argument('--yolo-size', type=int, required=False, default=320, help='YOLOv5 image size during inference')
     parser.add_argument('--show', default=False, action='store_true',
                         help='preview result')
+    parser.add_argument('--show-yolo', default=False, action='store_true',
+                        help='preview yolo result')
     parser.add_argument('--save-img', default=False, action='store_true',
                         help='save image result')
     parser.add_argument('--save-json', default=False, action='store_true',
@@ -151,14 +195,28 @@ if __name__ == "__main__":
 
     # Load the model
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device('cpu')
-
-    use_onnx = args.model.endswith('onnx')
+    use_onnx = args.model.endswith('.onnx')
+    use_trt = args.model.endswith('.engine')
 
     if use_onnx:
         vit_pose = onnxruntime.InferenceSession(args.model,
                                                 providers=['CUDAExecutionProvider',
                                                            'CPUExecutionProvider'])
         inf_fn = inference_onnx
+    elif use_trt:
+        logger = trt.Logger(trt.Logger.ERROR)
+        trt_runtime = trt.Runtime(logger)
+        trt_engine = engine_utils.load_engine(trt_runtime, args.model)
+
+        # This allocates memory for network inputs/outputs on both CPU and GPU
+        inputs, outputs, bindings, stream = engine_utils.allocate_buffers(trt_engine)
+        # Execution context is needed for inference
+        context = trt_engine.create_execution_context()
+        trt_inf = partial(engine_utils.do_inference,
+                          context=context, bindings=bindings, inputs=inputs,
+                          outputs=outputs, stream=stream)
+        vit_pose = {'inputs': inputs, 'inf_helper': trt_inf}
+        inf_fn = inference_trt
     else:
         vit_pose = ViTPose(model_cfg)
         vit_pose.eval()
@@ -205,13 +263,14 @@ if __name__ == "__main__":
     fps_yolo = deque([], maxlen=30)
     fps_vitpose = deque([], maxlen=30)
     for ith, img in enumerate(reader):
-        # First use YOLOv5 for detection  # TODO: Size of inference 320
+        # First use YOLOv5 for detection
         t0 = time.time()
-        results = yolo(img, size=320).pandas().xyxy[0].to_numpy()
+        results = yolo(img, size=args.yolo_size)
+        res_pd = results.pandas().xyxy[0].to_numpy()
         fps_yolo.append(1 / (time.time() - t0))
 
         frame_keypoints = []
-        for result in results:
+        for result in res_pd:
             if result[4] < 0.4:  # TODO: Confidence finetuning
                 continue
             bbox = result[:4].astype(np.float64).round().astype(int)
@@ -235,15 +294,18 @@ if __name__ == "__main__":
 
         keypoints.append([v.tolist() for v in frame_keypoints])  # TODO
         if args.show or args.save_img:
-            img = np.array(img)[:, :, ::-1].copy()  # RGB to BGR for cv2 modules
+            img = np.array(img)[:, :, ::-1]  # RGB to BGR for cv2 modules
             for k in frame_keypoints:
-                img = draw_points_and_skeleton(img, k,
+                img = draw_points_and_skeleton(img.copy(), k,
                                                joints_dict()['coco']['skeleton'],
                                                person_index=0,
                                                points_color_palette='gist_rainbow',
                                                skeleton_color_palette='jet',
                                                points_palette_samples=10,
                                                confidence_threshold=0.4)
+
+            if args.show_yolo:
+                results.render()
 
             if args.save_img:
                 if is_video:
