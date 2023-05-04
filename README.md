@@ -6,25 +6,59 @@
 ## Accurate 2d human pose estimation, finetuned on 25 keypoints COCO skeleton + feet  
 ### Easy to use SOTA `ViTPose` [Y. Xu et al., 2022] models for fast inference.  
 
-### Features
+### Results
 
+![resimg](https://user-images.githubusercontent.com/24314647/236281199-98e45ab5-2a18-45b7-ba5c-36bdec4450f4.png)
+(Model - ViTPose-b)
+
+https://user-images.githubusercontent.com/24314647/236281644-344ccc0e-a5ea-49a3-9671-d221153d56a6.mov
+
+(s - small, b - base, l - large, h - huge)
+
+#### Benchmark:
+Run on `GTX1080ti`, consider that tensorrt > onnx > torch.  
+These benchmarks are relative to `ViTPose` models, they do not consider Yolo detection that is done before `ViTPose` inference.  
+Tensorrt:  
+- ViTPose-s: ~250 fps
+- ViTPose-b: ~125 fps
+- ViTPose-l: ~45 fps
+- ViTPose-h: ~24.5 fps
+(these are relative to single person pose estimation)
+
+### Features
 - Image / Video / Webcam support
 - Torch / ONNX / Tensorrt models
 - 4 ViTPose architectures with different sizes
 - cpu / gpu support
 
 ## Usage
-### | **Inference**
-```
-python inference.py --image-path './examples/img1.jpg'
-```
+- Download the models from [Huggingface](https://huggingface.co/JunkyByte/easy_ViTPose)
+Right now the yolo models are loaded from same folder of `inference.py` so place them there :)
 
-### | **Training**
-```
-python train.py --config-path config.yaml --model-name 'b'
-```
-- `model_name` must be in (`b`, `l`, `h`)
+```bash
+$ python inference.py --help
+usage: inference.py [-h] [--input INPUT] [--output-path OUTPUT_PATH] --model MODEL [--model-name MODEL_NAME]
+                    [--yolo-size YOLO_SIZE] [--yolo-nano] [--show] [--show-yolo] [--save-img] [--save-json]
 
+optional arguments:
+  -h, --help            show this help message and exit
+  --input INPUT         image or video path
+  --output-path OUTPUT_PATH
+                        output path
+  --model MODEL         ckpt path
+  --model-name MODEL_NAME
+                        [s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H]
+  --yolo-size YOLO_SIZE
+                        YOLOv5 image size during inference
+  --yolo-nano           Whether to use (the very fast) yolo nano (instead of small)
+  --show                preview result
+  --show-yolo           preview yolo result
+  --save-img            save image result
+  --save-json           save json result```
+
+### | **Finetuning**
+Finetuning is run with `train.py` on COCO + feet.  
+Check `datasets/COCO.py`, `config.yaml` and `train.py` for details.
 
 ---
 ## Reference
