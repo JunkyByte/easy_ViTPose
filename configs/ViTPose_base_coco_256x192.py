@@ -139,7 +139,6 @@ val_pipeline = [
 test_pipeline = val_pipeline
 
 data_root = '/home/adryw/dataset/COCO17'
-# data_root = 'annotations'
 data = dict(
     samples_per_gpu=64,
     workers_per_gpu=6,

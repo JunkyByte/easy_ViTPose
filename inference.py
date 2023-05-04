@@ -123,7 +123,7 @@ if __name__ == "__main__":
     parser.add_argument('--output-path', type=str, default='', help='output path')
     parser.add_argument('--model', type=str, required=True, help='ckpt path')
     parser.add_argument('--model-name', type=str, required=True,
-                        help='[b: ViT-B, l: ViT-L, h: ViT-H]')
+                        help='[s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H]')
     parser.add_argument('--show', default=False, action='store_true',
                         help='preview result')
     parser.add_argument('--save-img', default=False, action='store_true',
@@ -132,7 +132,10 @@ if __name__ == "__main__":
                         help='save json result')
     args = parser.parse_args()
 
-    if args.model_name == 'b':
+    if args.model_name == 's':
+        from configs.ViTPose_small_coco_256x192 import model as model_cfg
+        from configs.ViTPose_small_coco_256x192 import data_cfg
+    elif args.model_name == 'b':
         from configs.ViTPose_base_coco_256x192 import model as model_cfg
         from configs.ViTPose_base_coco_256x192 import data_cfg
     elif args.model_name == 'l':

@@ -2,14 +2,13 @@ _base_ = [
     '../../../../_base_/default_runtime.py',
     '../../../../_base_/datasets/coco.py'
 ]
-
 evaluation = dict(interval=10, metric='mAP', save_best='AP')
 
-optimizer = dict(type='AdamW', lr=5e-4, betas=(0.9, 0.999), weight_decay=0.1,
+optimizer = dict(type='AdamW', lr=1e-3, betas=(0.9, 0.999), weight_decay=0.1,
                  constructor='LayerDecayOptimizerConstructor', 
                  paramwise_cfg=dict(
                                     num_layers=12, 
-                                    layer_decay_rate=0.75,
+                                    layer_decay_rate=1 - 2e-4,
                                     custom_keys={
                                             'bias': dict(decay_multi=0.),
                                             'pos_embed': dict(decay_mult=0.),
@@ -25,20 +24,18 @@ optimizer_config = dict(grad_clip=dict(max_norm=1., norm_type=2))
 lr_config = dict(
     policy='step',
     warmup='linear',
-    warmup_iters=500,
+    warmup_iters=300,
     warmup_ratio=0.001,
-    step=[170, 200])
-total_epochs = 210
+    step=[3])
+total_epochs = 4
 target_type = 'GaussianHeatmap'
 channel_cfg = dict(
-    num_output_channels=17,
-    dataset_joints=17,
-    dataset_channel=[
-        [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
-    ],
-    inference_channel=[
-        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
-    ])
+    num_output_channels=25,
+    dataset_joints=25,
+    dataset_channel=[[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                      16, 17, 18, 19, 20, 21, 22, 23, 24], ],
+    inference_channel=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+                       16, 17, 18, 19, 20, 21, 22, 23, 24])
 
 # model settings
 model = dict(
@@ -48,23 +45,22 @@ model = dict(
         type='ViT',
         img_size=(256, 192),
         patch_size=16,
-        embed_dim=768,
+        embed_dim=384,
         depth=12,
         num_heads=12,
         ratio=1,
         use_checkpoint=False,
         mlp_ratio=4,
         qkv_bias=True,
-        drop_path_rate=0.3,
+        drop_path_rate=0.1,
     ),
     keypoint_head=dict(
         type='TopdownHeatmapSimpleHead',
-        in_channels=768,
-        num_deconv_layers=0,
-        num_deconv_filters=[],
-        num_deconv_kernels=[],
-        upsample=4,
-        extra=dict(final_conv_kernel=3, ),
+        in_channels=384,
+        num_deconv_layers=2,
+        num_deconv_filters=(256, 256),
+        num_deconv_kernels=(4, 4),
+        extra=dict(final_conv_kernel=1, ),
         out_channels=channel_cfg['num_output_channels'],
         loss_keypoint=dict(type='JointsMSELoss', use_target_weight=True)),
     train_cfg=dict(),
@@ -141,32 +137,28 @@ val_pipeline = [
 
 test_pipeline = val_pipeline
 
-data_root = 'datasets/coco'
+data_root = '/home/adryw/dataset/COCO17'
 data = dict(
     samples_per_gpu=64,
     workers_per_gpu=4,
-    val_dataloader=dict(samples_per_gpu=32),
-    test_dataloader=dict(samples_per_gpu=32),
+    val_dataloader=dict(samples_per_gpu=128),
+    test_dataloader=dict(samples_per_gpu=128),
     train=dict(
         type='TopDownCocoDataset',
         ann_file=f'{data_root}/annotations/person_keypoints_train2017.json',
         img_prefix=f'{data_root}/train2017/',
         data_cfg=data_cfg,
-        pipeline=train_pipeline,
-        dataset_info={{_base_.dataset_info}}),
+        pipeline=train_pipeline),
     val=dict(
         type='TopDownCocoDataset',
         ann_file=f'{data_root}/annotations/person_keypoints_val2017.json',
         img_prefix=f'{data_root}/val2017/',
         data_cfg=data_cfg,
-        pipeline=val_pipeline,
-        dataset_info={{_base_.dataset_info}}),
+        pipeline=val_pipeline),
     test=dict(
         type='TopDownCocoDataset',
         ann_file=f'{data_root}/annotations/person_keypoints_val2017.json',
         img_prefix=f'{data_root}/val2017/',
         data_cfg=data_cfg,
-        pipeline=test_pipeline,
-        dataset_info={{_base_.dataset_info}}),
+        pipeline=test_pipeline)
 )
-

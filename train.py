@@ -17,6 +17,7 @@ from utils.util import init_random_seed, set_random_seed
 from utils.dist_util import get_dist_info, init_dist
 from utils.logging import get_root_logger
 
+import configs.ViTPose_small_coco_256x192 as s_cfg
 import configs.ViTPose_base_coco_256x192 as b_cfg
 import configs.ViTPose_large_coco_256x192 as l_cfg
 import configs.ViTPose_huge_coco_256x192 as h_cfg
@@ -33,6 +34,7 @@ CUR_PATH = osp.dirname(__file__)
 def main(config_path, model_name):
         
     cfg = {'b':b_cfg,
+           's':s_cfg,
            'l':l_cfg,
            'h':h_cfg}.get(model_name.lower())
     # Load config.yaml
