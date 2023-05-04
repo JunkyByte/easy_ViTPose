@@ -1,15 +1,19 @@
 import argparse
-import json
-import os
-
-from PIL import Image
 from collections import deque
 from functools import partial
-import cv2
+import json
+import os
 import time
+
+from PIL import Image
+import cv2
 import numpy as np
 import torch
 from torchvision.transforms import transforms
+
+from vit_models.model import ViTPose
+from vit_utils.top_down_eval import keypoints_from_heatmaps
+from vit_utils.visualization import draw_points_and_skeleton, joints_dict
 
 try:  # Add bools -> error stack
     import pycuda.driver as cuda
@@ -25,19 +29,6 @@ try:
     has_onnx = True
 except ModuleNotFoundError:
     pass
-
-
-# TODO: This is hacky, but it's also hacky therefore quite hacky
-yolo_model = 'yolov5s' + ('.onnx' if has_onnx else '.pt')
-yolo = torch.hub.load("ultralytics/yolov5", "custom", yolo_model)
-yolo.classes = [0]
-import sys
-sys.modules.pop('models')
-sys.modules.pop('utils')
-
-from models.model import ViTPose
-from utils.top_down_eval import keypoints_from_heatmaps
-from utils.visualization import draw_points_and_skeleton, joints_dict
 
 __all__ = ['inference']
 
@@ -163,9 +154,11 @@ if __name__ == "__main__":
                         help='image or video path')
     parser.add_argument('--output-path', type=str, default='', help='output path')
     parser.add_argument('--model', type=str, required=True, help='ckpt path')
-    parser.add_argument('--model-name', type=str, required=True,
+    parser.add_argument('--model-name', type=str, required=False,
                         help='[s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H]')
     parser.add_argument('--yolo-size', type=int, required=False, default=320, help='YOLOv5 image size during inference')
+    parser.add_argument('--yolo-nano', default=False, action='store_true',
+                        help='Whether to use (the very fast) yolo nano (instead of small)')
     parser.add_argument('--show', default=False, action='store_true',
                         help='preview result')
     parser.add_argument('--show-yolo', default=False, action='store_true',
@@ -175,6 +168,21 @@ if __name__ == "__main__":
     parser.add_argument('--save-json', default=False, action='store_true',
                         help='save json result')
     args = parser.parse_args()
+
+    # Load Yolo
+    model_name = 'yolov5n' if args.yolo_nano else 'yolov5s'
+    yolo_model = model_name + ('.onnx' if has_onnx else '.pt')
+    yolo = torch.hub.load("ultralytics/yolov5", "custom", yolo_model)
+    yolo.classes = [0]
+
+    # Load vitpose model
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device('cpu')
+    use_onnx = args.model.endswith('.onnx')
+    use_trt = args.model.endswith('.engine')
+
+    if args.model_name is None:  # onnx / trt models do not require model_cfg specification, but we need img size
+        assert use_onnx or use_trt
+        args.model_name = 's'
 
     if args.model_name == 's':
         from configs.ViTPose_small_coco_256x192 import model as model_cfg
@@ -192,11 +200,6 @@ if __name__ == "__main__":
     input_path = args.input
     ext = input_path[input_path.rfind('.'):]
     img_size = data_cfg['image_size']
-
-    # Load the model
-    device = torch.device("cuda") if torch.cuda.is_available() else torch.device('cpu')
-    use_onnx = args.model.endswith('.onnx')
-    use_trt = args.model.endswith('.engine')
 
     if use_onnx:
         vit_pose = onnxruntime.InferenceSession(args.model,
@@ -294,6 +297,9 @@ if __name__ == "__main__":
 
         keypoints.append([v.tolist() for v in frame_keypoints])  # TODO
         if args.show or args.save_img:
+            if args.show_yolo:
+                img = np.array(results.render())[0]
+
             img = np.array(img)[:, :, ::-1]  # RGB to BGR for cv2 modules
             for k in frame_keypoints:
                 img = draw_points_and_skeleton(img.copy(), k,
@@ -303,9 +309,6 @@ if __name__ == "__main__":
                                                skeleton_color_palette='jet',
                                                points_palette_samples=10,
                                                confidence_threshold=0.4)
-
-            if args.show_yolo:
-                results.render()
 
             if args.save_img:
                 if is_video:

@@ -13,18 +13,18 @@ from glob import glob
 import torch
 import torch.distributed as dist
 
-from utils.util import init_random_seed, set_random_seed
-from utils.dist_util import get_dist_info, init_dist
-from utils.logging import get_root_logger
+from vit_utils.util import init_random_seed, set_random_seed
+from vit_utils.dist_util import get_dist_info, init_dist
+from vit_utils.logging import get_root_logger
 
 import configs.ViTPose_small_coco_256x192 as s_cfg
 import configs.ViTPose_base_coco_256x192 as b_cfg
 import configs.ViTPose_large_coco_256x192 as l_cfg
 import configs.ViTPose_huge_coco_256x192 as h_cfg
 
-from models.model import ViTPose
+from vit_models.model import ViTPose
 from datasets.COCO import COCODataset
-from utils.train_valid_fn import train_model
+from vit_utils.train_valid_fn import train_model
 
 CUR_PATH = osp.dirname(__file__)
 

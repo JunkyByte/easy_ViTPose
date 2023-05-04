@@ -16,7 +16,7 @@ from PIL import Image
 from .HumanPoseEstimation import HumanPoseEstimationDataset as Dataset
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from utils.transform import fliplr_joints, affine_transform, get_affine_transform
+from vit_utils.transform import fliplr_joints, affine_transform, get_affine_transform
 
 import numpy as np
 

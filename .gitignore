@@ -1,8 +1,8 @@
-**/*.pth
 **/*.pt
+**/*.pth
+**/*.onnx
 **/__pycache__
 **/coco/
-*.onnx
 .DS_Store
 runs
 ckpts
