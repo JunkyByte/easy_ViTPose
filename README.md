@@ -8,7 +8,7 @@
 
 This is a work in progress, feel free to contribute.
 
-### Results
+## Results
 
 ![resimg](https://user-images.githubusercontent.com/24314647/236281199-98e45ab5-2a18-45b7-ba5c-36bdec4450f4.png)
 (Model - ViTPose-b)
@@ -18,7 +18,13 @@ https://user-images.githubusercontent.com/24314647/236281644-344ccc0e-a5ea-49a3-
 (Credits: https://www.youtube.com/watch?v=p-rSdt0aFuw&pp=ygUhZGFuY2UgZXZvbHV0aW9uIGZyb20gMTk1MCB0byAyMDE5)  
 (s - small, b - base, l - large, h - huge)
 
-#### Benchmark:
+## Features
+- Image / Video / Webcam support
+- Torch / ONNX / Tensorrt models
+- 4 ViTPose architectures with different sizes
+- cpu / gpu support
+
+### Benchmark:
 Run on `GTX1080ti`, consider that tensorrt > onnx > torch.  
 These benchmarks are relative to `ViTPose` models, they do not consider Yolo detection that is done before `ViTPose` inference.  
 Tensorrt:  
@@ -27,12 +33,6 @@ Tensorrt:
 - ViTPose-l: ~45 fps
 - ViTPose-h: ~24.5 fps
 (these are relative to single person pose estimation)
-
-### Features
-- Image / Video / Webcam support
-- Torch / ONNX / Tensorrt models
-- 4 ViTPose architectures with different sizes
-- cpu / gpu support
 
 ## Usage
 - Download the models from [Huggingface](https://huggingface.co/JunkyByte/easy_ViTPose)  
