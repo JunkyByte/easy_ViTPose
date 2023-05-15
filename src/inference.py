@@ -3,7 +3,6 @@ import argparse
 from collections import deque
 import json
 import os
-import time
 
 from PIL import Image
 import cv2
