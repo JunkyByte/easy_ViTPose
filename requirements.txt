@@ -12,7 +12,7 @@ pycocotools==2.0.6
 pycuda>=2022.2.2
 PyYAML==6.0
 setuptools==67.7.2
-tensorrt==8.6.1
+nvidia-tensorrt>=8.4
 torch>=1.11.0
 torchvision>=0.10.0
 tqdm==4.64.1

@@ -74,7 +74,9 @@ class VitInference:
         elif use_trt:
             logger = trt.Logger(trt.Logger.ERROR)
             trt_runtime = trt.Runtime(logger)
+            print(trt_runtime, model)
             trt_engine = engine_utils.load_engine(trt_runtime, model)
+            print(trt_engine)
 
             # This allocates memory for network inputs/outputs on both CPU and GPU
             self._inputs, self._outputs, self._bindings, self._stream = \
@@ -150,7 +152,7 @@ class VitInference:
 
             cv2.imshow('preview', img)
             cv2.waitKey(0)
-        return frame_keypoints
+        return frame_keypoints, results
 
     @torch.no_grad()
     def _inference_torch(self, img: np.ndarray) -> np.ndarray:
@@ -159,7 +161,7 @@ class VitInference:
         org_h, org_w = img.shape[:2]
         img_input = cv2.resize(img, self.target_size, interpolation=cv2.INTER_LINEAR)
         img_input = img_input.astype(np.float32).transpose(2, 0, 1)[None, ...] / 255
-        img_input = torch.from_numpy(img_input).to(device)
+        img_input = torch.from_numpy(img_input).to(self.device)
 
         # Feed to model
         heatmaps = self._vit_pose(img_input).detach().cpu().numpy()
@@ -263,10 +265,24 @@ if __name__ == "__main__":
     for ith, img in enumerate(reader):
 
         # Run inference
-        frame_keypoints = model.inference(img, show=args.show, show_yolo=args.show_yolo)
+        frame_keypoints, yolo_res = model.inference(img, show=args.show, show_yolo=args.show_yolo)
         keypoints.append([v.tolist() for v in frame_keypoints])  # TODO
 
+        # Draw the poses and save the output img
         if args.save_img:
+            if args.show_yolo:
+                img = np.array(yolo_res.render())[0]
+
+            img = np.array(img)[:, :, ::-1]  # RGB to BGR for cv2 modules
+            for k in frame_keypoints:
+                img = draw_points_and_skeleton(img.copy(), k,
+                                               joints_dict()['coco']['skeleton'],
+                                               person_index=0,
+                                               points_color_palette='gist_rainbow',
+                                               skeleton_color_palette='jet',
+                                               points_palette_samples=10,
+                                               confidence_threshold=0.4)
+
             if is_video:
                 out_writer.write(img)
             else:
