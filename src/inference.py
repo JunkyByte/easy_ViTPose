@@ -33,7 +33,7 @@ __all__ = ['VitInference']
 
 
 class VitInference:
-    def __init__(self, model, yolo_name, model_name=None, yolo_size=320
+    def __init__(self, model, yolo_name, model_name=None, yolo_size=320,
                  device='cuda' if torch.cuda.is_available() else 'cpu'):
         self.device = torch.device(device)
         self.yolo = torch.hub.load("ultralytics/yolov5", "custom", yolo_name)
