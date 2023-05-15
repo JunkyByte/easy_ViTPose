@@ -4,6 +4,11 @@
 </p>
 
 ## Accurate 2d human pose estimation, finetuned on 25 keypoints COCO skeleton + feet  
+
+<a target="_blank" href="https://colab.research.google.com/github/JunkyByte/easy_ViTPose/blob/main/colab_demo.ipynb">
+  <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
+</a>
+
 ### Easy to use SOTA `ViTPose` [Y. Xu et al., 2022] models for fast inference.  
 
 This is a work in progress, feel free to contribute.
