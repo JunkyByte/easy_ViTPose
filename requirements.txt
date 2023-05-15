@@ -16,4 +16,4 @@ tensorrt==8.6.1
 torch>=1.11.0
 torchvision>=0.10.0
 tqdm==4.64.1
-
+ultralytics==8.0.88

@@ -8,7 +8,6 @@ from PIL import Image
 import cv2
 import numpy as np
 import torch
-from torchvision.transforms import transforms
 
 from vit_models.model import ViTPose
 from vit_utils.top_down_eval import keypoints_from_heatmaps
@@ -158,13 +157,12 @@ class VitInference:
 
         # Prepare input data
         org_h, org_w = img.shape[:2]
-        img_tensor = transforms.Compose([transforms.ToTensor(),
-                                         transforms.Resize((self.target_size[1],
-                                                            self.target_size[0])),
-                                         ])(img).unsqueeze(0).to(self.device)
+        img_input = cv2.resize(img, self.target_size, interpolation=cv2.INTER_LINEAR)
+        img_input = img_input.astype(np.float32).transpose(2, 0, 1)[None, ...] / 255
+        img_input = torch.from_numpy(img_input).to(device)
 
         # Feed to model
-        heatmaps = self._vit_pose(img_tensor).detach().cpu().numpy()
+        heatmaps = self._vit_pose(img_input).detach().cpu().numpy()
         return self.postprocess(heatmaps, org_w, org_h)
 
     def _inference_onnx(self, img: np.ndarray) -> np.ndarray:
