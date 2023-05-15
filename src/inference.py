@@ -33,11 +33,12 @@ __all__ = ['VitInference']
 
 
 class VitInference:
-    def __init__(self, model, yolo_name, model_name=None,
+    def __init__(self, model, yolo_name, model_name=None, yolo_size=320
                  device='cuda' if torch.cuda.is_available() else 'cpu'):
         self.device = torch.device(device)
         self.yolo = torch.hub.load("ultralytics/yolov5", "custom", yolo_name)
         self.yolo.classes = [0]
+        self.yolo_size = yolo_size
 
         # Use extension to decide which kind of model has been loaded
         use_onnx = model.endswith('.onnx')
@@ -74,9 +75,7 @@ class VitInference:
         elif use_trt:
             logger = trt.Logger(trt.Logger.ERROR)
             trt_runtime = trt.Runtime(logger)
-            print(trt_runtime, model)
             trt_engine = engine_utils.load_engine(trt_runtime, model)
-            print(trt_engine)
 
             # This allocates memory for network inputs/outputs on both CPU and GPU
             self._inputs, self._outputs, self._bindings, self._stream = \
@@ -114,7 +113,7 @@ class VitInference:
 
     def inference(self, img: np.ndarray, show=False, show_yolo=False) -> np.ndarray:
         # First use YOLOv5 for detection
-        results = self.yolo(img, size=args.yolo_size)
+        results = self.yolo(img, size=self.yolo_size)
         res_pd = results.pandas().xyxy[0].to_numpy()
 
         frame_keypoints = []
@@ -229,7 +228,7 @@ if __name__ == "__main__":
     input_path = args.input
     ext = input_path[input_path.rfind('.'):]
 
-    model = VitInference(args.model, yolo_model, args.model_name)
+    model = VitInference(args.model, yolo_model, args.model_name, args.yolo_size)
     print(f">>> Model loaded: {args.model}")
 
     # Load the image / video reader
