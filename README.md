@@ -40,8 +40,14 @@ Tensorrt:
 (these are relative to single person pose estimation)
 
 ## Usage
+```bash
+git clone git@github.com:JunkyByte/easy_ViTPose.git
+cd easy_ViTPose/
+pip install -r requirements.txt
+```
 - Download the models from [Huggingface](https://huggingface.co/JunkyByte/easy_ViTPose)  
-Right now the yolo models are loaded from same folder of `inference.py` so place them there :)
+Right now the yolo models are loaded from same folder of `inference.py` so place them there :)  
+If you want to integrate the inference in your own script check `inference.py` or the colab demo.
 
 ```bash
 $ python inference.py --help
