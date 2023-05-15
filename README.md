@@ -78,11 +78,12 @@ Check `datasets/COCO.py`, `config.yaml` and `train.py` for details.
 ---
 
 ## TODO:
-- requirements.txt
-- General cleanup
+- ~~requirements.txt~~
+- General cleanup (50%)
 - Tensorrt version of yolo (had some problems)
 - Skeleton specification [reference](https://github.com/JunkyByte/easy_ViTPose/blob/main/src/vit_utils/visualization.py#L14)
-- json output in better format
+- json output in better format  
+Feel free to open pull requests and contribute on these TODOs.
 
 ## Reference
 This code is substantially a fork of [jaehyunnn/ViTPose_pytorch](https://github.com/jaehyunnn/ViTPose_pytorch), without Jaehyunnn work this repo would not be possible. Thanks to the VitPose authors and their official implementation [ViTAE-Transformer/ViTPose](https://github.com/ViTAE-Transformer/ViTPose).
