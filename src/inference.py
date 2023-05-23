@@ -48,6 +48,8 @@ class VitInference:
             f'The model name {model_name} is not valid'
 
         # onnx / trt models do not require model_cfg specification, but we need img size
+        # TODO: These can be replaced, during inference they are almost useless, only
+        # needed for img size and torch version of the model.
         if model_name is None:
             assert use_onnx or use_trt, \
                 'Specify the model_name if not using onnx / trt'
