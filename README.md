@@ -40,8 +40,14 @@ Tensorrt:
 (these are relative to single person pose estimation)
 
 ## Usage
+```bash
+git clone git@github.com:JunkyByte/easy_ViTPose.git
+cd easy_ViTPose/
+pip install -r requirements.txt
+```
 - Download the models from [Huggingface](https://huggingface.co/JunkyByte/easy_ViTPose)  
-Right now the yolo models are loaded from same folder of `inference.py` so place them there :)
+Right now the yolo models are loaded from same folder of `inference.py` so place them there :)  
+If you want to integrate the inference in your own script check `inference.py` or the colab demo.
 
 ```bash
 $ python inference.py --help
@@ -72,12 +78,13 @@ Check `datasets/COCO.py`, `config.yaml` and `train.py` for details.
 ---
 
 ## TODO:
-- requirements.txt
-- General cleanup
+- ~~requirements.txt~~
+- General cleanup (50%)
 - Tensorrt version of yolo (had some problems)
 - Skeleton specification [reference](https://github.com/JunkyByte/easy_ViTPose/blob/main/src/vit_utils/visualization.py#L14)
 - json output in better format
-- yolo tracking for json out maybe: https://github.com/tensorturtle/classy-sort-yolov5
+- yolo tracking for json out maybe: https://github.com/tensorturtle/classy-sort-yolov5  
+Feel free to open pull requests and contribute on these TODOs.
 
 ## Reference
 This code is substantially a fork of [jaehyunnn/ViTPose_pytorch](https://github.com/jaehyunnn/ViTPose_pytorch), without Jaehyunnn work this repo would not be possible. Thanks to the VitPose authors and their official implementation [ViTAE-Transformer/ViTPose](https://github.com/ViTAE-Transformer/ViTPose).
