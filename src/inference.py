@@ -12,7 +12,7 @@ import torch
 from vit_models.model import ViTPose
 from vit_utils.top_down_eval import keypoints_from_heatmaps
 from vit_utils.visualization import draw_points_and_skeleton, joints_dict
-from vit_utils.inference import pad_image, VideoReader
+from vit_utils.inference import pad_image, VideoReader, NumpyEncoder, draw_bboxes
 from sort import Sort
 
 try:  # Add bools -> error stack
@@ -33,40 +33,22 @@ except ModuleNotFoundError:
 __all__ = ['VitInference']
 
 
-# TODO: Where should this go?
-def draw_bboxes(image, bounding_boxes, boxes_id, scores):
-    image_with_boxes = image.copy()
-
-    for bbox, bbox_id, score in zip(bounding_boxes, boxes_id, scores):
-        x1, y1, x2, y2 = bbox
-        cv2.rectangle(image_with_boxes, (x1, y1), (x2, y2), (128, 128, 0), 2)
-
-        label = f'#{bbox_id}: {score:.2f}'
-
-        (label_width, label_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-        label_x = x1
-        label_y = y1 - 5 if y1 > 20 else y1 + 20
-
-        # Draw a filled rectangle as the background for the label
-        cv2.rectangle(image_with_boxes, (x1, label_y - label_height - 5),
-                      (x1 + label_width, label_y + 5), (128, 128, 0), cv2.FILLED)
-        cv2.putText(image_with_boxes, label, (label_x, label_y),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
-
-    return image_with_boxes
-
-
 class VitInference:
     def __init__(self, model, yolo_name, model_name=None, yolo_size=320,
                  device='cuda' if torch.cuda.is_available() else 'cpu',
-                 is_video=False):
+                 is_video=False, save_state=True):
         self.device = torch.device(device)
         self.yolo = torch.hub.load("ultralytics/yolov5", "custom", yolo_name)
         self.yolo.classes = [0]
         self.yolo_size = yolo_size
-        self.tracker = Sort(max_age=1, min_hits=3, iou_threshold=0.3) if is_video else None  # TODO: Params
-        self.is_video = is_video
-        self.waitKey = 1 if is_video else 0
+        self.tracker = Sort(max_age=1, min_hits=3, iou_threshold=0.2) if is_video else None  # TODO: Params
+
+        # State saving during inference
+        self.save_state = save_state
+        self._img = None
+        self._yolo_res = None
+        self._tracker_res = None
+        self._keypoints = None
 
         # Use extension to decide which kind of model has been loaded
         use_onnx = model.endswith('.onnx')
@@ -141,18 +123,23 @@ class VitInference:
     def _inference(img: np.ndarray) -> np.ndarray:
         raise NotImplementedError
 
-    def inference(self, img: np.ndarray, show=False, show_yolo=False) -> np.ndarray:
+    def inference(self, img: np.ndarray) -> np.ndarray:
         # First use YOLOv5 for detection
         results = self.yolo(img, size=self.yolo_size)
-        # TODO: Confidence finetuning, is it done by tracker? should do it only on non tracker?
-        res_pd = np.array([r[:5] for r in results.pandas().xyxy[0].to_numpy() if r[4] > 0.4])
+        res_pd = np.array([r[:5].tolist() for r in results.pandas().xyxy[0].to_numpy() if r[4] > 0.4])  # TODO: Confidence threshold
 
         frame_keypoints = {}
+        ids = None
         if self.tracker is not None:
             res_pd = self.tracker.update(res_pd)
+            ids = res_pd[:, 5].astype(int).tolist()
+
+        # Prepare boxes for inference
         bboxes = res_pd[:, :4].round().astype(int)
         scores = res_pd[:, 4].tolist()
-        ids = res_pd[:, 5].astype(int).tolist()
+
+        if ids is None:
+            ids = range(len(bboxes))
 
         for bbox, id in zip(bboxes, ids):
             # TODO: Slightly bigger bbox
@@ -168,25 +155,34 @@ class VitInference:
             keypoints[:, :2] += bbox[:2][::-1] - [top_pad, left_pad]
             frame_keypoints[id] = keypoints
 
-        if show:
-            if show_yolo:
-                # TODO: Add tracker rendering
-                # img = np.array(results.render())[0]
-                img = draw_bboxes(img, bboxes, ids, scores)
+        if self.save_state:
+            self._img = img
+            self._yolo_res = results
+            self._tracker_res = (bboxes, ids, scores)
+            self._keypoints = frame_keypoints
 
-            img = np.array(img)[:, :, ::-1]  # RGB to BGR for cv2 modules
-            for idx, k in frame_keypoints.items():
-                img = draw_points_and_skeleton(img.copy(), k,
-                                               joints_dict()['coco']['skeleton'],
-                                               person_index=idx,
-                                               points_color_palette='gist_rainbow',
-                                               skeleton_color_palette='jet',
-                                               points_palette_samples=10,
-                                               confidence_threshold=0.4)
+        return frame_keypoints
 
-            cv2.imshow('preview', img)
-            cv2.waitKey(self.waitKey)
-        return frame_keypoints, results, res_pd  # TODO: Decide output! adapt in colab and here
+    def draw(self, show_yolo=True, show_raw_yolo=False):
+        img = self._img.copy()
+        bboxes, ids, scores = self._tracker_res
+
+        if show_raw_yolo or (self.tracker is None and show_yolo):
+            img = np.array(self._yolo_res.render())[0]
+
+        if show_yolo and self.tracker is not None:
+            img = draw_bboxes(img, bboxes, ids, scores)
+
+        img = np.array(img)[:, :, ::-1]  # RGB to BGR for cv2 modules
+        for idx, k in self._keypoints.items():
+            img = draw_points_and_skeleton(img.copy(), k,
+                                           joints_dict()['coco']['skeleton'],
+                                           person_index=idx,
+                                           points_color_palette='gist_rainbow',
+                                           skeleton_color_palette='jet',
+                                           points_palette_samples=10,
+                                           confidence_threshold=0)
+        return img
 
     @torch.no_grad()
     def _inference_torch(self, img: np.ndarray) -> np.ndarray:
@@ -250,6 +246,8 @@ if __name__ == "__main__":
                         help='preview result')
     parser.add_argument('--show-yolo', default=False, action='store_true',
                         help='preview yolo result')
+    parser.add_argument('--show-raw-yolo', default=False, action='store_true',
+                        help='preview yolo result before that SORT is applied for tracking')
     parser.add_argument('--save-img', default=False, action='store_true',
                         help='save image result')
     parser.add_argument('--save-json', default=False, action='store_true',
@@ -294,36 +292,28 @@ if __name__ == "__main__":
     model = VitInference(args.model, yolo_model, args.model_name, args.yolo_size, is_video=is_video)
     print(f">>> Model loaded: {args.model}")
 
-    print(f'Running inference on {input_path}')
+    print(f'>>> Running inference on {input_path}')
     keypoints = []
     fps = deque([], maxlen=30)
     for ith, img in enumerate(reader):
-
         # Run inference
-        frame_keypoints, yolo_res, bboxes = model.inference(img, show=args.show, show_yolo=args.show_yolo)
-        keypoints.append(frame_keypoints)  # TODO: Here mantain PID with tracking
+        frame_keypoints = model.inference(img)
+        keypoints.append(frame_keypoints)
 
         # Draw the poses and save the output img
-        if args.save_img:
-            if args.show_yolo:
-                img = np.array(yolo_res.render())[0]
-                # img = draw_bboxes(img, bboxes)  # TODO
+        if args.show or args.save_img:
+            img = model.draw(args.show_yolo, args.show_raw_yolo)
 
-            img = np.array(img)[:, :, ::-1]  # RGB to BGR for cv2 modules
-            for k in frame_keypoints:
-                img = draw_points_and_skeleton(img.copy(), k,
-                                               joints_dict()['coco']['skeleton'],
-                                               person_index=0,  # TODO: Add pid
-                                               points_color_palette='gist_rainbow',
-                                               skeleton_color_palette='jet',
-                                               points_palette_samples=10,
-                                               confidence_threshold=0.4)
+            if args.save_img:
+                print('>>> Saving output image')
+                if is_video:
+                    out_writer.write(img)
+                else:
+                    save_name = os.path.basename(input_path).replace(ext, f"_result{ext}")
+                    cv2.imwrite(os.path.join(args.output_path, save_name), img)
 
-            if is_video:
-                out_writer.write(img)
-            else:
-                save_name = os.path.basename(input_path).replace(ext, f"_result{ext}")
-                cv2.imwrite(os.path.join(args.output_path, save_name), img)
+            cv2.imshow('preview', img)
+            cv2.waitKey(wait)
 
     if args.save_json:
         print('>>> Saving output json')
@@ -331,7 +321,7 @@ if __name__ == "__main__":
         with open(os.path.join(args.output_path, save_name), 'w') as f:
             out = {'keypoints': keypoints}
             out['skeleton'] = joints_dict()['coco']['keypoints']
-            json.dump(out, f)
+            json.dump(out, f, cls=NumpyEncoder)
 
     if is_video and args.save_img:
         out_writer.release()
