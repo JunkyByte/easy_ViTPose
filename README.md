@@ -18,7 +18,7 @@ This is a work in progress.
 ![resimg](https://user-images.githubusercontent.com/24314647/236281199-98e45ab5-2a18-45b7-ba5c-36bdec4450f4.png)
 (Model - ViTPose-b)
 
-https://github.com/JunkyByte/easy_ViTPose/assets/24314647/4d0663c3-fbbe-45b1-9903-dd12ffe9099a
+https://github.com/JunkyByte/easy_ViTPose/assets/24314647/a43ca37b-3e64-4c19-bf07-813fdf45f112
 
 (Credits: https://www.youtube.com/watch?v=p-rSdt0aFuw&pp=ygUhZGFuY2UgZXZvbHV0aW9uIGZyb20gMTk1MCB0byAyMDE5)  
 (s - small, b - base, l - large, h - huge)
