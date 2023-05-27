@@ -83,6 +83,27 @@ optional arguments:
   --save-img            save image results
   --save-json           save json results
 ```
+
+You can run inference from code as follows:
+```python
+import cv2
+from inference import VitInference
+
+# Image to run inference RGB format
+img = cv2.imread('./examples/img1.jpg')
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+# set is_video=True to enable tracking in video inference
+model_path = './ckpts/vitpose-25-s.onnx'
+yolo_path = './yolov5s.onnx'
+model = VitInference(model_path, yolo_path, model_name='s', yolo_size=320, is_video=False)
+
+# Infer keypoints, output is a dict where keys are person ids and values are keypoints (np.ndarray (25, 3): (y, x, score))
+keypoints = model.inference(img)
+
+img = model.draw(show_yolo=True)  # Returns RGB image with drawings
+cv2.imshow('image', img)
+```
 If the input file is a video [SORT](https://github.com/abewley/sort) is used to track people IDs and output consistent identifications.
 
 ## Finetuning
