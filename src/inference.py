@@ -128,7 +128,9 @@ class VitInference:
     def inference(self, img: np.ndarray) -> np.ndarray:
         # First use YOLOv5 for detection
         results = self.yolo(img, size=self.yolo_size)
-        res_pd = np.array([r[:5].tolist() for r in results.pandas().xyxy[0].to_numpy() if r[4] > 0.4])  # TODO: Confidence threshold
+        res_pd = np.array([r[:5].tolist() for r in
+                           results.pandas().xyxy[0].to_numpy() if r[4] > 0.3]).reshape((-1, 5))
+        # TODO: Confidence threshold
 
         frame_keypoints = {}
         ids = None
@@ -248,6 +250,9 @@ if __name__ == "__main__":
                         help='[s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H]')
     parser.add_argument('--yolo-size', type=int, required=False, default=320,
                         help='YOLOv5 image size during inference')
+    parser.add_argument('--rotate', type=int, choices=[90, 180, 270],
+                        required=False, default=0,
+                        help='Rotate the image of [90, 180, 270] degress counterclockwise')
     parser.add_argument('--yolo-nano', default=False, action='store_true',
                         help='Use (the very fast) yolo nano (instead of small)')
     parser.add_argument('--show', default=False, action='store_true',
@@ -290,12 +295,12 @@ if __name__ == "__main__":
         is_video = True
     except ValueError:
         assert os.path.isfile(input_path), 'The input file does not exist'
-        is_video = input_path[input_path.rfind('.') + 1:] in ['mp4']
+        is_video = input_path[input_path.rfind('.') + 1:].lower() in ['mp4', 'mov']
 
     wait = 0
     total_frames = 1
     if is_video:
-        reader = VideoReader(input_path)
+        reader = VideoReader(input_path, args.rotate)
         cap = cv2.VideoCapture(input_path)
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         cap.release()
@@ -312,7 +317,7 @@ if __name__ == "__main__":
                                          cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'),
                                          fps, output_size)
     else:
-        reader = [np.array(Image.open(input_path))]
+        reader = [np.array(Image.open(input_path).rotate(args.rotate))]
 
     # Initialize model
     model = VitInference(args.model, yolo_model, args.model_name,

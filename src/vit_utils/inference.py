@@ -3,6 +3,13 @@ import numpy as np
 import json
 
 
+rotation_map = {
+    0: None,
+    90: cv2.ROTATE_90_COUNTERCLOCKWISE,
+    180: cv2.ROTATE_180,
+    270: cv2.ROTATE_90_CLOCKWISE
+}
+
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.ndarray):
@@ -63,8 +70,9 @@ def pad_image(image: np.ndarray, aspect_ratio: float) -> np.ndarray:
 
 
 class VideoReader(object):
-    def __init__(self, file_name):
+    def __init__(self, file_name, rotate=0):
         self.file_name = file_name
+        self.rotate = rotation_map[rotate]
         try:  # OpenCV needs int to read from webcam
             self.file_name = int(file_name)
         except ValueError:
@@ -80,4 +88,6 @@ class VideoReader(object):
         was_read, img = self.cap.read()
         if not was_read:
             raise StopIteration
+        if self.rotate is not None:
+            img = cv2.rotate(img, self.rotate)
         return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
