@@ -1,5 +1,34 @@
 import cv2
 import numpy as np
+import json
+
+
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
+
+def draw_bboxes(image, bounding_boxes, boxes_id, scores):
+    image_with_boxes = image.copy()
+
+    for bbox, bbox_id, score in zip(bounding_boxes, boxes_id, scores):
+        x1, y1, x2, y2 = bbox
+        cv2.rectangle(image_with_boxes, (x1, y1), (x2, y2), (128, 128, 0), 2)
+
+        label = f'#{bbox_id}: {score:.2f}'
+
+        (label_width, label_height), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+        label_x = x1
+        label_y = y1 - 5 if y1 > 20 else y1 + 20
+
+        # Draw a filled rectangle as the background for the label
+        cv2.rectangle(image_with_boxes, (x1, label_y - label_height - 5),
+                      (x1 + label_width, label_y + 5), (128, 128, 0), cv2.FILLED)
+        cv2.putText(image_with_boxes, label, (label_x, label_y),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1)
+
+    return image_with_boxes
 
 
 def pad_image(image: np.ndarray, aspect_ratio: float) -> np.ndarray:
@@ -52,5 +81,3 @@ class VideoReader(object):
         if not was_read:
             raise StopIteration
         return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
-

@@ -1,8 +1,10 @@
+# PYTHON_ARGCOMPLETE_OK
 import abc
-import argparse
+import time
 from collections import deque
 import json
 import os
+import tqdm
 
 from PIL import Image
 import cv2
@@ -12,7 +14,8 @@ import torch
 from vit_models.model import ViTPose
 from vit_utils.top_down_eval import keypoints_from_heatmaps
 from vit_utils.visualization import draw_points_and_skeleton, joints_dict
-from vit_utils.inference import pad_image, VideoReader
+from vit_utils.inference import pad_image, VideoReader, NumpyEncoder, draw_bboxes
+from sort import Sort
 
 try:  # Add bools -> error stack
     import pycuda.driver as cuda  # noqa: [F401]
@@ -34,11 +37,20 @@ __all__ = ['VitInference']
 
 class VitInference:
     def __init__(self, model, yolo_name, model_name=None, yolo_size=320,
-                 device='cuda' if torch.cuda.is_available() else 'cpu'):
+                 device='cuda' if torch.cuda.is_available() else 'cpu',
+                 is_video=False):
         self.device = torch.device(device)
         self.yolo = torch.hub.load("ultralytics/yolov5", "custom", yolo_name)
         self.yolo.classes = [0]
         self.yolo_size = yolo_size
+        self.tracker = Sort(max_age=1, min_hits=3, iou_threshold=0.2) if is_video else None  # TODO: Params
+
+        # State saving during inference
+        self.save_state = True  # Can be disabled manually
+        self._img = None
+        self._yolo_res = None
+        self._tracker_res = None
+        self._keypoints = None
 
         # Use extension to decide which kind of model has been loaded
         use_onnx = model.endswith('.onnx')
@@ -113,20 +125,29 @@ class VitInference:
     def _inference(img: np.ndarray) -> np.ndarray:
         raise NotImplementedError
 
-    def inference(self, img: np.ndarray, show=False, show_yolo=False) -> np.ndarray:
+    def inference(self, img: np.ndarray) -> np.ndarray:
         # First use YOLOv5 for detection
         results = self.yolo(img, size=self.yolo_size)
-        res_pd = results.pandas().xyxy[0].to_numpy()
+        res_pd = np.array([r[:5].tolist() for r in results.pandas().xyxy[0].to_numpy() if r[4] > 0.4])  # TODO: Confidence threshold
 
-        frame_keypoints = []
-        for result in res_pd:
-            if result[4] < 0.4:  # TODO: Confidence finetuning
-                continue
+        frame_keypoints = {}
+        ids = None
+        if self.tracker is not None:
+            res_pd = self.tracker.update(res_pd)
+            ids = res_pd[:, 5].astype(int).tolist()
 
+        # Prepare boxes for inference
+        bboxes = res_pd[:, :4].round().astype(int)
+        scores = res_pd[:, 4].tolist()
+        pad_bbox = 5 if self.tracker else 10
+
+        if ids is None:
+            ids = range(len(bboxes))
+
+        for bbox, id in zip(bboxes, ids):
             # TODO: Slightly bigger bbox
-            bbox = result[:4].astype(np.float64).round().astype(int)
-            bbox[[0, 2]] = np.clip(bbox[[0, 2]] + [-10, 10], 0, img.shape[1])
-            bbox[[1, 3]] = np.clip(bbox[[1, 3]] + [-10, 10], 0, img.shape[0])
+            bbox[[0, 2]] = np.clip(bbox[[0, 2]] + [-pad_bbox, pad_bbox], 0, img.shape[1])
+            bbox[[1, 3]] = np.clip(bbox[[1, 3]] + [-pad_bbox, pad_bbox], 0, img.shape[0])
 
             # Crop image and pad to 3/4 aspect ratio
             img_inf = img[bbox[1]:bbox[3], bbox[0]:bbox[2]]
@@ -135,25 +156,36 @@ class VitInference:
             keypoints = self._inference(img_inf)[0]
             # Transform keypoints to original image
             keypoints[:, :2] += bbox[:2][::-1] - [top_pad, left_pad]
-            frame_keypoints.append(keypoints)
+            frame_keypoints[id] = keypoints
 
-        if show:
-            if show_yolo:
-                img = np.array(results.render())[0]
+        if self.save_state:
+            self._img = img
+            self._yolo_res = results
+            self._tracker_res = (bboxes, ids, scores)
+            self._keypoints = frame_keypoints
 
-            img = np.array(img)[:, :, ::-1]  # RGB to BGR for cv2 modules
-            for k in frame_keypoints:
-                img = draw_points_and_skeleton(img.copy(), k,
-                                               joints_dict()['coco']['skeleton'],
-                                               person_index=0,
-                                               points_color_palette='gist_rainbow',
-                                               skeleton_color_palette='jet',
-                                               points_palette_samples=10,
-                                               confidence_threshold=0.4)
+        return frame_keypoints
 
-            cv2.imshow('preview', img)
-            cv2.waitKey(0)
-        return frame_keypoints, results
+    def draw(self, show_yolo=True, show_raw_yolo=False):
+        img = self._img.copy()
+        bboxes, ids, scores = self._tracker_res
+
+        if show_raw_yolo or (self.tracker is None and show_yolo):
+            img = np.array(self._yolo_res.render())[0]
+
+        if show_yolo and self.tracker is not None:
+            img = draw_bboxes(img, bboxes, ids, scores)
+
+        img = np.array(img)[..., ::-1]  # RGB to BGR for cv2 modules
+        for idx, k in self._keypoints.items():
+            img = draw_points_and_skeleton(img.copy(), k,
+                                           joints_dict()['coco']['skeleton'],
+                                           person_index=idx,
+                                           points_color_palette='gist_rainbow',
+                                           skeleton_color_palette='jet',
+                                           points_palette_samples=10,
+                                           confidence_threshold=0)
+        return img[..., ::-1]  # Return RGB as original
 
     @torch.no_grad()
     def _inference_torch(self, img: np.ndarray) -> np.ndarray:
@@ -202,25 +234,34 @@ class VitInference:
 
 
 if __name__ == "__main__":
+    import argparse
+    # import argcomplete
     parser = argparse.ArgumentParser()
     parser.add_argument('--input', type=str, default='examples/sample.jpg',
-                        help='image or video path')
-    parser.add_argument('--output-path', type=str, default='', help='output path')
-    parser.add_argument('--model', type=str, required=True, help='ckpt path')
+                        help='path to image / video or webcam ID (=cv2)')
+    parser.add_argument('--output-path', type=str, default='',
+                        help='output path, if the path provided is a directory'
+                        ' output files are "input_name +_result{extension}".')
+    parser.add_argument('--model', type=str, required=True,
+                        help='checkpoint path of the model')
     parser.add_argument('--model-name', type=str, required=False,
                         help='[s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H]')
     parser.add_argument('--yolo-size', type=int, required=False, default=320,
                         help='YOLOv5 image size during inference')
     parser.add_argument('--yolo-nano', default=False, action='store_true',
-                        help='Whether to use (the very fast) yolo nano (instead of small)')
+                        help='Use (the very fast) yolo nano (instead of small)')
     parser.add_argument('--show', default=False, action='store_true',
-                        help='preview result')
+                        help='preview result during inference')
     parser.add_argument('--show-yolo', default=False, action='store_true',
-                        help='preview yolo result')
+                        help='draw yolo results')
+    parser.add_argument('--show-raw-yolo', default=False, action='store_true',
+                        help='draw yolo result before that SORT is applied for tracking'
+                        ' (only valid during video inference)')
     parser.add_argument('--save-img', default=False, action='store_true',
-                        help='save image result')
+                        help='save image results')
     parser.add_argument('--save-json', default=False, action='store_true',
-                        help='save json result')
+                        help='save json results')
+    # argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
     # Load Yolo
@@ -230,8 +271,18 @@ if __name__ == "__main__":
     input_path = args.input
     ext = input_path[input_path.rfind('.'):]
 
-    model = VitInference(args.model, yolo_model, args.model_name, args.yolo_size)
-    print(f">>> Model loaded: {args.model}")
+    assert not (args.save_img or args.save_json) or args.output_path, \
+            'Specify an output path if using save-img or save-json flags'
+    output_path = args.output_path
+    if output_path:
+        if os.path.isdir(output_path):
+            save_name_img = os.path.basename(input_path).replace(ext, f"_result{ext}")
+            save_name_json = os.path.basename(input_path).replace(ext, f"_result.json")
+            output_path_img = os.path.join(output_path, save_name_img)
+            output_path_json = os.path.join(output_path, save_name_json)
+        else:
+            output_path_img = output_path + f'{ext}'
+            output_path_json = output_path + '.json'
 
     # Load the image / video reader
     try:  # Check if is webcam
@@ -242,8 +293,12 @@ if __name__ == "__main__":
         is_video = input_path[input_path.rfind('.') + 1:] in ['mp4']
 
     wait = 0
+    total_frames = 1
     if is_video:
         reader = VideoReader(input_path)
+        cap = cv2.VideoCapture(input_path)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        cap.release()
         wait = 15
         if args.save_img:
             cap = cv2.VideoCapture(input_path)
@@ -253,50 +308,62 @@ if __name__ == "__main__":
             assert ret
             assert fps > 0
             output_size = frame.shape[:2][::-1]
-            save_name = os.path.basename(input_path).replace(ext, f"_result{ext}")
-            out_writer = cv2.VideoWriter(os.path.join(args.output_path, save_name),
+            out_writer = cv2.VideoWriter(output_path_img,
                                          cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'),
                                          fps, output_size)
     else:
         reader = [np.array(Image.open(input_path))]
 
-    print(f'Running inference on {input_path}')
+    # Initialize model
+    model = VitInference(args.model, yolo_model, args.model_name,
+                         args.yolo_size, is_video=is_video)
+    print(f">>> Model loaded: {args.model}")
+
+    print(f'>>> Running inference on {input_path}')
     keypoints = []
-    fps = deque([], maxlen=30)
-    for ith, img in enumerate(reader):
+    fps = []
+    tstart = time.time()
+    for (ith, img) in tqdm.tqdm(enumerate(reader), total=total_frames):
+        t0 = time.time()
 
         # Run inference
-        frame_keypoints, yolo_res = model.inference(img, show=args.show, show_yolo=args.show_yolo)
-        keypoints.append([v.tolist() for v in frame_keypoints])  # TODO
+        frame_keypoints = model.inference(img)
+        keypoints.append(frame_keypoints)
+
+        fps.append(time.time() - t0)
 
         # Draw the poses and save the output img
-        if args.save_img:
-            if args.show_yolo:
-                img = np.array(yolo_res.render())[0]
+        if args.show or args.save_img:
+            # Draw result and transform to BGR
+            img = model.draw(args.show_yolo, args.show_raw_yolo)[..., ::-1]
 
-            img = np.array(img)[:, :, ::-1]  # RGB to BGR for cv2 modules
-            for k in frame_keypoints:
-                img = draw_points_and_skeleton(img.copy(), k,
-                                               joints_dict()['coco']['skeleton'],
-                                               person_index=0,
-                                               points_color_palette='gist_rainbow',
-                                               skeleton_color_palette='jet',
-                                               points_palette_samples=10,
-                                               confidence_threshold=0.4)
+            if args.save_img:
+                # TODO: If exists add (1), (2), ...
+                if is_video:
+                    out_writer.write(img)
+                else:
+                    print('>>> Saving output image')
+                    cv2.imwrite(output_path_img, img)
 
-            if is_video:
-                out_writer.write(img)
-            else:
-                save_name = os.path.basename(input_path).replace(ext, f"_result{ext}")
-                cv2.imwrite(os.path.join(args.output_path, save_name), img)
+            if args.show:
+                cv2.imshow('preview', img)
+                cv2.waitKey(wait)
+
+    if is_video:
+        tot_poses = sum(len(k) for k in keypoints)
+        tot_time = time.time() - tstart
+        print(f'>>> Mean inference FPS: {1 / np.mean(fps):.2f}')
+        print(f'>>> Total poses predicted: {tot_poses} mean per frame: '
+              f'{(tot_poses / (ith + 1)):.2f}')
+        print(f'>>> Mean FPS per pose: {(tot_poses / tot_time):.2f}')
+
 
     if args.save_json:
         print('>>> Saving output json')
-        save_name = os.path.basename(input_path).replace(ext, "_result.json")
-        with open(os.path.join(args.output_path, save_name), 'w') as f:
-            out = {'keypoints': keypoints.tolist()}
-            out['skeleton'] = joints_dict()['coco']['keypoints']
-            json.dump(out, f)
+        with open(output_path_json, 'w') as f:
+            out = {'keypoints': keypoints,
+                   'skeleton': joints_dict()['coco']['keypoints']}
+            json.dump(out, f, cls=NumpyEncoder)
 
     if is_video and args.save_img:
         out_writer.release()
