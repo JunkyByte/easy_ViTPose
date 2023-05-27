@@ -38,7 +38,7 @@ __all__ = ['VitInference']
 class VitInference:
     def __init__(self, model, yolo_name, model_name=None, yolo_size=320,
                  device='cuda' if torch.cuda.is_available() else 'cpu',
-                 is_video=False, save_state=True):
+                 is_video=False):
         self.device = torch.device(device)
         self.yolo = torch.hub.load("ultralytics/yolov5", "custom", yolo_name)
         self.yolo.classes = [0]
@@ -46,7 +46,7 @@ class VitInference:
         self.tracker = Sort(max_age=1, min_hits=3, iou_threshold=0.2) if is_video else None  # TODO: Params
 
         # State saving during inference
-        self.save_state = save_state
+        self.save_state = True  # Can be disabled manually
         self._img = None
         self._yolo_res = None
         self._tracker_res = None
@@ -139,14 +139,15 @@ class VitInference:
         # Prepare boxes for inference
         bboxes = res_pd[:, :4].round().astype(int)
         scores = res_pd[:, 4].tolist()
+        pad_bbox = 5 if self.tracker else 10
 
         if ids is None:
             ids = range(len(bboxes))
 
         for bbox, id in zip(bboxes, ids):
             # TODO: Slightly bigger bbox
-            bbox[[0, 2]] = np.clip(bbox[[0, 2]] + [-5, 5], 0, img.shape[1])
-            bbox[[1, 3]] = np.clip(bbox[[1, 3]] + [-5, 5], 0, img.shape[0])
+            bbox[[0, 2]] = np.clip(bbox[[0, 2]] + [-pad_bbox, pad_bbox], 0, img.shape[1])
+            bbox[[1, 3]] = np.clip(bbox[[1, 3]] + [-pad_bbox, pad_bbox], 0, img.shape[0])
 
             # Crop image and pad to 3/4 aspect ratio
             img_inf = img[bbox[1]:bbox[3], bbox[0]:bbox[2]]
