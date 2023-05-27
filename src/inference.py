@@ -176,7 +176,7 @@ class VitInference:
         if show_yolo and self.tracker is not None:
             img = draw_bboxes(img, bboxes, ids, scores)
 
-        img = np.array(img)[:, :, ::-1]  # RGB to BGR for cv2 modules
+        img = np.array(img)[..., ::-1]  # RGB to BGR for cv2 modules
         for idx, k in self._keypoints.items():
             img = draw_points_and_skeleton(img.copy(), k,
                                            joints_dict()['coco']['skeleton'],
@@ -185,7 +185,7 @@ class VitInference:
                                            skeleton_color_palette='jet',
                                            points_palette_samples=10,
                                            confidence_threshold=0)
-        return img
+        return img[..., ::-1]  # Return RGB as original
 
     @torch.no_grad()
     def _inference_torch(self, img: np.ndarray) -> np.ndarray:
@@ -334,7 +334,8 @@ if __name__ == "__main__":
 
         # Draw the poses and save the output img
         if args.show or args.save_img:
-            img = model.draw(args.show_yolo, args.show_raw_yolo)
+            # Draw result and transform to BGR
+            img = model.draw(args.show_yolo, args.show_raw_yolo)[..., ::-1]
 
             if args.save_img:
                 # TODO: If exists add (1), (2), ...
