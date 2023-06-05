@@ -1,4 +1,3 @@
-# PYTHON_ARGCOMPLETE_OK
 import abc
 import time
 from collections import deque
@@ -36,9 +35,24 @@ __all__ = ['VitInference']
 
 
 class VitInference:
+    """
+    Class for performing inference using ViTPose models with YOLOv5 human detection detection and SORT tracking.
+
+    Args:
+        model (str): Path to the ViT model file (.pth, .onnx, .engine).
+        yolo_name (str): Name of the YOLOv5 model to load.
+        model_name (str, optional): Name of the ViT model architecture to use. Valid values are 's', 'b', 'l', 'h'.
+                                    Defaults to None, is necessary when using .pth checkpoints.
+        yolo_size (int, optional): Size of the input image for YOLOv5 model. Defaults to 320.
+        device (str, optional): Device to use for inference. Defaults to 'cuda' if available, else 'cpu'.
+        is_video (bool, optional): Flag indicating if the input is video. Defaults to False.
+    """
     def __init__(self, model, yolo_name, model_name=None, yolo_size=320,
                  device='cuda' if torch.cuda.is_available() else 'cpu',
                  is_video=False):
+        assert os.path.isfile(model), f'The model file {model} does not exist'
+        assert os.path.isfile(yolo_name), f'The YOLOv5 model {yolo_name} does not exist'
+
         self.device = torch.device(device)
         self.yolo = torch.hub.load("ultralytics/yolov5", "custom", yolo_name)
         self.yolo.classes = [0]
@@ -114,6 +128,17 @@ class VitInference:
 
     @classmethod
     def postprocess(cls, heatmaps, org_w, org_h):
+        """
+        Postprocess the heatmaps to obtain keypoints and their probabilities.
+
+        Args:
+            heatmaps (ndarray): Heatmap predictions from the model.
+            org_w (int): Original width of the image.
+            org_h (int): Original height of the image.
+
+        Returns:
+            ndarray: Processed keypoints with probabilities.
+        """
         points, prob = keypoints_from_heatmaps(heatmaps=heatmaps,
                                                center=np.array([[org_w // 2,
                                                                  org_h // 2]]),
@@ -123,9 +148,29 @@ class VitInference:
 
     @abc.abstractmethod
     def _inference(img: np.ndarray) -> np.ndarray:
+        """
+        Abstract method for performing inference on an image.
+        It is overloaded by each inference engine.
+
+        Args:
+            img (ndarray): Input image for inference.
+
+        Returns:
+            ndarray: Inference results.
+        """
         raise NotImplementedError
 
     def inference(self, img: np.ndarray) -> np.ndarray:
+        """
+        Perform inference on the input image.
+
+        Args:
+            img (ndarray): Input image for inference in RGB format.
+
+        Returns:
+            ndarray: Inference results.
+        """
+        ...
         # First use YOLOv5 for detection
         results = self.yolo(img, size=self.yolo_size)
         res_pd = np.array([r[:5].tolist() for r in
@@ -133,7 +178,7 @@ class VitInference:
         # TODO: Confidence threshold
 
         frame_keypoints = {}
-        ids = None
+        ids = res(len(bboxes))
         if self.tracker is not None:
             res_pd = self.tracker.update(res_pd)
             ids = res_pd[:, 5].astype(int).tolist()
@@ -142,9 +187,6 @@ class VitInference:
         bboxes = res_pd[:, :4].round().astype(int)
         scores = res_pd[:, 4].tolist()
         pad_bbox = 5 if self.tracker else 10
-
-        if ids is None:
-            ids = range(len(bboxes))
 
         for bbox, id in zip(bboxes, ids):
             # TODO: Slightly bigger bbox
@@ -169,6 +211,16 @@ class VitInference:
         return frame_keypoints
 
     def draw(self, show_yolo=True, show_raw_yolo=False):
+        """
+        Draw keypoints and bounding boxes on the image.
+
+        Args:
+            show_yolo (bool, optional): Whether to show YOLOv5 bounding boxes. Default is True.
+            show_raw_yolo (bool, optional): Whether to show raw YOLOv5 bounding boxes. Default is False.
+
+        Returns:
+            ndarray: Image with keypoints and bounding boxes drawn.
+        """
         img = self._img.copy()
         bboxes, ids, scores = self._tracker_res
 
@@ -188,14 +240,17 @@ class VitInference:
                                            points_palette_samples=10,
                                            confidence_threshold=0)
         return img[..., ::-1]  # Return RGB as original
-
-    @torch.no_grad()
-    def _inference_torch(self, img: np.ndarray) -> np.ndarray:
-
-        # Prepare input data
+    
+    def pre_img(self, img):
         org_h, org_w = img.shape[:2]
         img_input = cv2.resize(img, self.target_size, interpolation=cv2.INTER_LINEAR)
         img_input = img_input.astype(np.float32).transpose(2, 0, 1)[None, ...] / 255
+        return img_input, org_h, org_w
+
+    @torch.no_grad()
+    def _inference_torch(self, img: np.ndarray) -> np.ndarray:
+        # Prepare input data
+        img_input, org_h, org_w = self.pre_img(img)
         img_input = torch.from_numpy(img_input).to(self.device)
 
         # Feed to model
@@ -203,11 +258,8 @@ class VitInference:
         return self.postprocess(heatmaps, org_w, org_h)
 
     def _inference_onnx(self, img: np.ndarray) -> np.ndarray:
-
         # Prepare input data
-        org_h, org_w = img.shape[:2]
-        img_input = cv2.resize(img, self.target_size, interpolation=cv2.INTER_LINEAR)
-        img_input = img_input.astype(np.float32).transpose(2, 0, 1)[None, ...] / 255
+        img_input, org_h, org_w = self.pre_img(img)
 
         # Feed to model
         ort_inputs = {self._ort_session.get_inputs()[0].name: img_input}
@@ -215,15 +267,11 @@ class VitInference:
         return self.postprocess(heatmaps, org_w, org_h)
 
     def _inference_trt(self, img: np.ndarray) -> np.ndarray:
-
         # Prepare input data
-        org_h, org_w = img.shape[:2]
-        img_input = cv2.resize(img, self.target_size, interpolation=cv2.INTER_LINEAR)
-        img_input = img_input.astype(np.float32).transpose(2, 0, 1)[None, ...] / 255
+        img_input, org_h, org_w = self.pre_img(img)
 
         # Copy the data to appropriate memory
         np.copyto(self._inputs[0].host, img_input.ravel())
-
         heatmaps = engine_utils.do_inference(context=self._context,
                                              bindings=self._bindings,
                                              inputs=self._inputs,
@@ -237,7 +285,6 @@ class VitInference:
 
 if __name__ == "__main__":
     import argparse
-    # import argcomplete
     parser = argparse.ArgumentParser()
     parser.add_argument('--input', type=str, default='examples/sample.jpg',
                         help='path to image / video or webcam ID (=cv2)')
@@ -266,7 +313,6 @@ if __name__ == "__main__":
                         help='save image results')
     parser.add_argument('--save-json', default=False, action='store_true',
                         help='save json results')
-    # argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
     # Load Yolo
