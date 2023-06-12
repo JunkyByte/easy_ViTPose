@@ -48,8 +48,8 @@ The skeleton keypoint ordering can be found in [visualization.py](https://github
 </details>
 
 ## Installation and Usage
-#### NEWS: easy_ViTPose is now a package for easier custom inference  
-You now need to install the repo, I did not force the `requirements.txt` as they are not throughly tested, be sure to install the necessary packages by yourself.
+#### NEW: easy_ViTPose is now a package for easier custom inference  
+You now need to install the repo, I did not force the `requirements.txt` as they are not thoroughly tested, be sure to install the necessary packages by yourself.
 ```bash
 git clone git@github.com:JunkyByte/easy_ViTPose.git
 cd easy_ViTPose/
