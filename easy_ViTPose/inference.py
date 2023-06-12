@@ -11,11 +11,11 @@ import cv2
 import numpy as np
 import torch
 
-from vit_models.model import ViTPose
-from vit_utils.top_down_eval import keypoints_from_heatmaps
-from vit_utils.visualization import draw_points_and_skeleton, joints_dict
-from vit_utils.inference import pad_image, VideoReader, NumpyEncoder, draw_bboxes
-from sort import Sort
+from easy_ViTPose.vit_models.model import ViTPose
+from easy_ViTPose.vit_utils.top_down_eval import keypoints_from_heatmaps
+from easy_ViTPose.vit_utils.visualization import draw_points_and_skeleton, joints_dict
+from easy_ViTPose.vit_utils.inference import pad_image, VideoReader, NumpyEncoder, draw_bboxes
+from easy_ViTPose.sort import Sort
 
 try:  # Add bools -> error stack
     import pycuda.driver as cuda  # noqa: [F401]
@@ -148,7 +148,7 @@ class VitInference:
         This will reset the internal counter of frames, on videos
         this is necessary to reset the tracker.
         """
-        min_hits = 3 if args.yolo_step == 1 else 1
+        min_hits = 3 if self.yolo_step == 1 else 1
         use_tracker = self.is_video and not self.single_pose
         self.tracker = Sort(max_age=args.yolo_step,
                             min_hits=min_hits,
