@@ -112,7 +112,7 @@ yolo_path = './yolov5s.onnx'
 model = VitInference(model_path, yolo_path, model_name='s', yolo_size=320, is_video=False)
 
 # Infer keypoints, output is a dict where keys are person ids and values are keypoints (np.ndarray (25, 3): (y, x, score))
-# If is_video=True the IDs will be consistent among video frames and you should pass them in order.
+# If is_video=True the IDs will be consistent among the ordered video frames.
 keypoints = model.inference(img)
 
 # call model.reset() after each video
