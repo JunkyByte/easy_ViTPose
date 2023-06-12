@@ -52,7 +52,7 @@ class VitInference:
                                       won't be consistent among frames.
         yolo_step (int, optional): The tracker can be used to predict the bboxes instead of yolo for performance,
                                    this flag specifies how often yolo is applied (e.g. 1 applies yolo every frame).
-                                   This does not have any effect when is_video is False
+                                   This does not have any effect when is_video is False.
     """
 
     def __init__(self, model: str,
