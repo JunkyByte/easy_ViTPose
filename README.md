@@ -58,6 +58,7 @@ pip install -r requirements.txt
 ```
 - Download the models from [Huggingface](https://huggingface.co/JunkyByte/easy_ViTPose)  
 Right now, when using `inference.py` the yolo models are loaded from same folder of the script so place them there :)  
+The ONNX and tensorrt models were generated using the jupyter notebooks you can find in `easy_ViTPose/`, if you have problems running these checkpoints try to recreate them by yourself using the `.pth` checkpoints.
 
 To run inference from command line you can use the `inference.py` script as follows:  
 (be sure to `cd easy_ViTPose/easy_ViTPose/`)  
