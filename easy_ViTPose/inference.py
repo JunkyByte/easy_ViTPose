@@ -59,15 +59,25 @@ class VitInference:
                  yolo_name: str,
                  model_name: Optional[str] = None,
                  yolo_size: Optional[int] = 320,
-                 device: Optional[str] = 'cuda' if torch.cuda.is_available() else 'cpu',
+                 device: Optional[str] = None,
                  is_video: Optional[bool] = False,
                  single_pose: Optional[bool] = False,
                  yolo_step: Optional[int] = 1):
         assert os.path.isfile(model), f'The model file {model} does not exist'
         assert os.path.isfile(yolo_name), f'The YOLOv5 model {yolo_name} does not exist'
 
+        # Device priority is cuda / mps / cpu
+        if device is None:
+            if torch.cuda.is_available():
+                device = 'cuda'
+            elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                device = 'mps'
+            else:
+                device = 'cpu'
+
         self.device = torch.device(device)
         self.yolo = torch.hub.load("ultralytics/yolov5", "custom", yolo_name)
+        self.yolo.to(self.device)
         self.yolo.classes = [0]
         self.yolo_size = yolo_size
         self.yolo_step = yolo_step
@@ -358,9 +368,11 @@ if __name__ == "__main__":
                         help='save json results')
     args = parser.parse_args()
 
+    use_mps = hasattr(torch.backends, 'mps') and torch.backends.mps.is_available()
+
     # Load Yolo
     model_name = 'yolov5n' if args.yolo_nano else 'yolov5s'
-    yolo_model = model_name + ('.onnx' if has_onnx else '.pt')
+    yolo_model = model_name + ('.onnx' if has_onnx and not use_mps else '.pt')
 
     input_path = args.input
     ext = input_path[input_path.rfind('.'):]
