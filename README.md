@@ -48,8 +48,8 @@ The skeleton keypoint ordering can be found in [visualization.py](https://github
 </details>
 
 ## Installation and Usage
-#### NEWS: easy_ViTPose is now a package for easier custom inference  
-You now need to install the repo, I did not force the `requirements.txt` as they are not throughly tested, be sure to install the necessary packages by yourself.
+#### NEW: easy_ViTPose is now a package for easier custom inference  
+You now need to install the repo, I did not force the `requirements.txt` as they are not thoroughly tested, be sure to install the necessary packages by yourself.
 ```bash
 git clone git@github.com:JunkyByte/easy_ViTPose.git
 cd easy_ViTPose/
@@ -58,6 +58,7 @@ pip install -r requirements.txt
 ```
 - Download the models from [Huggingface](https://huggingface.co/JunkyByte/easy_ViTPose)  
 Right now, when using `inference.py` the yolo models are loaded from same folder of the script so place them there :)  
+The ONNX and tensorrt models were generated using the jupyter notebooks you can find in `easy_ViTPose/`, if you have problems running these checkpoints try to recreate them by yourself using the `.pth` checkpoints.
 
 To run inference from command line you can use the `inference.py` script as follows:  
 (be sure to `cd easy_ViTPose/easy_ViTPose/`)  
