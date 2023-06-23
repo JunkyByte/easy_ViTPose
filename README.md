@@ -26,7 +26,7 @@ https://github.com/JunkyByte/easy_ViTPose/assets/24314647/a43ca37b-3e64-4c19-bf0
 - Video support using SORT algorithm to track bboxes between frames and mantain multi pose identification
 - Torch / ONNX / Tensorrt models
 - 4 ViTPose architectures with different sizes
-- cpu / gpu support
+- cpu / gpu / mps (apple silicon gpu)
 - save output images / videos and json
 
 ### Benchmark:
@@ -110,7 +110,10 @@ img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 # There are a few flags that allows to customize VitInference, be sure to check the class definition
 model_path = './ckpts/vitpose-25-s.onnx'
 yolo_path = './yolov5s.onnx'
-model = VitInference(model_path, yolo_path, model_name='s', yolo_size=320, is_video=False)
+
+# If you want to use MPS (on new macbooks) use the torch checkpoints for both ViTPose and Yolo
+# If device is None will try to use cuda -> mps -> cpu (otherwise specify 'cpu', 'mps' or 'cuda')
+model = VitInference(model_path, yolo_path, model_name='s', yolo_size=320, is_video=False, device=None)
 
 # Infer keypoints, output is a dict where keys are person ids and values are keypoints (np.ndarray (25, 3): (y, x, score))
 # If is_video=True the IDs will be consistent among the ordered video frames.
