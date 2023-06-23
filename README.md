@@ -22,6 +22,7 @@ https://github.com/JunkyByte/easy_ViTPose/assets/24314647/a43ca37b-3e64-4c19-bf0
 (s - small, b - base, l - large, h - huge)
 
 ## Features
+### NEW: You can now use MPS on Apple silicon computers!
 - Image / Video / Webcam support
 - Video support using SORT algorithm to track bboxes between frames and mantain multi pose identification
 - Torch / ONNX / Tensorrt models
@@ -49,7 +50,7 @@ The skeleton keypoint ordering can be found in [visualization.py](https://github
 
 ## Installation and Usage
 #### NEW: easy_ViTPose is now a package for easier custom inference  
-You now need to install the repo, I did not force the `requirements.txt` as they are not thoroughly tested, be sure to install the necessary packages by yourself.
+You now need to install the repo, I did not enforce the `requirements.txt` as they are not thoroughly tested, be sure to install the necessary packages by yourself. To use the MPS support be sure to install a compatible torch version.
 ```bash
 git clone git@github.com:JunkyByte/easy_ViTPose.git
 cd easy_ViTPose/
