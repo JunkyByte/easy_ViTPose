@@ -96,7 +96,7 @@ class VitInference:
         use_onnx = model.endswith('.onnx')
         use_trt = model.endswith('.engine')
 
-        assert model_name in [None, 's', 'b', 'l', 'h'], \
+        assert model_name in [None, 's', 'b', 'l', 'h', 'whole-s', 'whole-b'], \
             f'The model name {model_name} is not valid'
 
         # onnx / trt models do not require model_cfg specification, but we need img size
@@ -119,6 +119,12 @@ class VitInference:
         elif model_name == 'h':
             from configs.ViTPose_huge_coco_256x192 import model as model_cfg
             from configs.ViTPose_huge_coco_256x192 import data_cfg
+        elif model_name == 'whole-s':
+            from configs.ViTPose_small_coco_fullbody_256x192 import model as model_cfg
+            from configs.ViTPose_small_coco_fullbody_256x192 import data_cfg
+        elif model_name == 'whole-b':
+            from configs.ViTPose_base_coco_fullbody_256x192 import model as model_cfg
+            from configs.ViTPose_base_coco_fullbody_256x192 import data_cfg
 
         self.target_size = data_cfg['image_size']
         if use_onnx:
@@ -279,7 +285,7 @@ class VitInference:
         img = np.array(img)[..., ::-1]  # RGB to BGR for cv2 modules
         for idx, k in self._keypoints.items():
             img = draw_points_and_skeleton(img.copy(), k,
-                                           joints_dict()['coco']['skeleton'],
+                                           joints_dict()['coco-wholebody']['skeleton'],
                                            person_index=idx,
                                            points_color_palette='gist_rainbow',
                                            skeleton_color_palette='jet',
@@ -340,7 +346,8 @@ if __name__ == "__main__":
     parser.add_argument('--model', type=str, required=True,
                         help='checkpoint path of the model')
     parser.add_argument('--model-name', type=str, required=False,
-                        help='[s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H]')
+                        help='[s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H, whole-s: '
+                             'ViT-S-Wholebody, whole-b: ViT-B-Wholebody]')
     parser.add_argument('--yolo-size', type=int, required=False, default=320,
                         help='YOLOv5 image size during inference')
     parser.add_argument('--rotate', type=int, choices=[0, 90, 180, 270],

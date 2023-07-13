@@ -1,6 +1,7 @@
 import torch.nn as nn
 
 from .backbone.vit import ViT
+from .backbone.vit_moe import ViTMoE
 from .head.topdown_heatmap_simple_head import TopdownHeatmapSimpleHead
 
 
@@ -14,7 +15,14 @@ class ViTPose(nn.Module):
         backbone_cfg = {k: v for k, v in cfg['backbone'].items() if k != 'type'}
         head_cfg = {k: v for k, v in cfg['keypoint_head'].items() if k != 'type'}
         
-        self.backbone = ViT(**backbone_cfg)
+        if cfg['backbone']['type'] == 'ViT':
+            backbone = ViT
+        elif cfg['backbone']['type'] == 'ViTMoE':
+            backbone = ViTMoE
+        else:
+            raise TypeError(f'The backbone {cfg["backbone"]["type"]} specified is not supported')
+
+        self.backbone = backbone(**backbone_cfg)
         self.keypoint_head = TopdownHeatmapSimpleHead(**head_cfg)
     
     def forward_features(self, x):

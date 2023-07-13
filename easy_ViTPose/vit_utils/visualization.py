@@ -11,6 +11,11 @@ __all__ = ["joints_dict", "draw_points_and_skeleton"]
 
 def joints_dict():
     joints = {
+        "coco-wholebody": {
+            "keypoints": {k: 'name' for k in range(133)}, # TODO: Keypoints
+            "skeleton": [
+                [0, 1], [0, 2],  # TODO: Skeleton
+            ]},
         "coco": {
             "keypoints": {
                 0: "nose",
