@@ -183,6 +183,7 @@ The output format of the json files:
 - parallel batched inference
 - ~~tuning the parameters of the SORT~~ (to be tested)
 - ~~allow for skip frames of yolo detection (to have faster inference) leveraging the SORT for tracking during those frames.~~
+- confidence masking on skeleton drawing (add arg)
   
 Feel free to open issues, pull requests and contribute on these TODOs.
 
