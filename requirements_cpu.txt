@@ -1,0 +1,23 @@
+click==8.1.3
+Cython==0.29.30
+ffmpeg==1.4
+huggingface_hub==0.16.4
+json_tricks==3.16.1
+matplotlib>=3.5.2
+munkres==1.1.4
+numpy==1.23.5
+# onnxruntime-gpu>=1.13.0
+opencv_python==4.6.0.66
+Pillow==9.5.0
+pycocotools==2.0.6
+# pycuda>=2022.2.2
+PyYAML==6.0
+setuptools==67.7.2
+# nvidia-tensorrt>=8.4
+torch>=1.11.0
+torchvision>=0.10.0
+tqdm==4.64.1
+ultralytics==8.0.88
+filterpy==1.4.5
+# lap==0.4.0
+scikit-image==0.20.0
