@@ -160,7 +160,7 @@ class VitInference:
         """
         min_hits = 3 if self.yolo_step == 1 else 1
         use_tracker = self.is_video and not self.single_pose
-        self.tracker = Sort(max_age=args.yolo_step,
+        self.tracker = Sort(max_age=self.yolo_step,
                             min_hits=min_hits,
                             iou_threshold=0.3) if use_tracker else None  # TODO: Params
         self.frame_counter = 0
