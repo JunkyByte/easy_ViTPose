@@ -47,9 +47,9 @@ class VitInference:
         yolo_size (int, optional): Size of the input image for YOLOv5 model. Defaults to 320.
         device (str, optional): Device to use for inference. Defaults to 'cuda' if available, else 'cpu'.
         is_video (bool, optional): Flag indicating if the input is video. Defaults to False.
-        single_pose (bool, optional): Flag indicating if the video (on images this flag has no effect) will contain a single pose.
-                                      In this case the SORT tracker is not used (increasing performance) but people id tracking
-                                      won't be consistent among frames.
+        single_pose (bool, optional): Flag indicating if the video will contain a single pose.
+                                      In this case the SORT tracker is not used (increasing performance)
+                                      but people id tracking might not be consistent among frames.
         yolo_step (int, optional): The tracker can be used to predict the bboxes instead of yolo for performance,
                                    this flag specifies how often yolo is applied (e.g. 1 applies yolo every frame).
                                    This does not have any effect when is_video is False.
@@ -120,11 +120,11 @@ class VitInference:
             from configs.ViTPose_huge_coco_256x192 import model as model_cfg
             from configs.ViTPose_huge_coco_256x192 import data_cfg
         elif model_name == 'whole-s':
-            from configs.ViTPose_small_coco_fullbody_256x192 import model as model_cfg
-            from configs.ViTPose_small_coco_fullbody_256x192 import data_cfg
+            from configs.ViTPose_small_coco_wholebody_256x192 import model as model_cfg
+            from configs.ViTPose_small_coco_wholebody_256x192 import data_cfg
         elif model_name == 'whole-b':
-            from configs.ViTPose_base_coco_fullbody_256x192 import model as model_cfg
-            from configs.ViTPose_base_coco_fullbody_256x192 import data_cfg
+            from configs.ViTPose_base_coco_wholebody_256x192 import model as model_cfg
+            from configs.ViTPose_base_coco_wholebody_256x192 import data_cfg
 
         self.target_size = data_cfg['image_size']
         if use_onnx:
@@ -166,7 +166,7 @@ class VitInference:
         """
         min_hits = 3 if self.yolo_step == 1 else 1
         use_tracker = self.is_video and not self.single_pose
-        self.tracker = Sort(max_age=args.yolo_step,
+        self.tracker = Sort(max_age=self.yolo_step,
                             min_hits=min_hits,
                             iou_threshold=0.3) if use_tracker else None  # TODO: Params
         self.frame_counter = 0
@@ -262,7 +262,7 @@ class VitInference:
 
         return frame_keypoints
 
-    def draw(self, show_yolo=True, show_raw_yolo=False):
+    def draw(self, show_yolo=True, show_raw_yolo=False, confidence_threshold=0.5):
         """
         Draw keypoints and bounding boxes on the image.
 
@@ -284,13 +284,14 @@ class VitInference:
 
         img = np.array(img)[..., ::-1]  # RGB to BGR for cv2 modules
         for idx, k in self._keypoints.items():
+            skeleton_name = 'coco' if k.shape[-1] == 25 else 'coco-wholebody'
             img = draw_points_and_skeleton(img.copy(), k,
-                                           joints_dict()['coco-wholebody']['skeleton'],
+                                           joints_dict()[skeleton_name]['skeleton'],
                                            person_index=idx,
                                            points_color_palette='gist_rainbow',
                                            skeleton_color_palette='jet',
                                            points_palette_samples=10,
-                                           confidence_threshold=0)
+                                           confidence_threshold=confidence_threshold)
         return img[..., ::-1]  # Return RGB as original
 
     def pre_img(self, img):
@@ -437,7 +438,7 @@ if __name__ == "__main__":
     print(f'>>> Running inference on {input_path}')
     keypoints = []
     fps = []
-    tstart = time.time()
+    tot_time = 0
     for (ith, img) in tqdm.tqdm(enumerate(reader), total=total_frames):
         t0 = time.time()
 
@@ -445,7 +446,9 @@ if __name__ == "__main__":
         frame_keypoints = model.inference(img)
         keypoints.append(frame_keypoints)
 
-        fps.append(time.time() - t0)
+        delta = time.time() - t0
+        tot_time += delta
+        fps.append(delta)
 
         # Draw the poses and save the output img
         if args.show or args.save_img:
@@ -466,7 +469,6 @@ if __name__ == "__main__":
 
     if is_video:
         tot_poses = sum(len(k) for k in keypoints)
-        tot_time = time.time() - tstart
         print(f'>>> Mean inference FPS: {1 / np.mean(fps):.2f}')
         print(f'>>> Total poses predicted: {tot_poses} mean per frame: '
               f'{(tot_poses / (ith + 1)):.2f}')
