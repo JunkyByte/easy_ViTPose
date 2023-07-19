@@ -2,6 +2,9 @@ from setuptools import setup, find_packages
 
 setup(
     name='easy_ViTPose',
-    version='0.1',
+    author="JunkyByte",
+    author_email="adriano.donninelli@hotmail.it",
+    version='0.2',
+    url="https://github.com/JunkyByte/easy_ViTPose"
     packages=find_packages(include=['easy_ViTPose', 'easy_ViTPose.*']),
 )

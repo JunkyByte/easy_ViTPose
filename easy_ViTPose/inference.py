@@ -256,7 +256,7 @@ class VitInference:
 
         return frame_keypoints
 
-    def draw(self, show_yolo=True, show_raw_yolo=False):
+    def draw(self, show_yolo=True, show_raw_yolo=False, confidence_threshold=0.5):
         """
         Draw keypoints and bounding boxes on the image.
 
@@ -284,7 +284,7 @@ class VitInference:
                                            points_color_palette='gist_rainbow',
                                            skeleton_color_palette='jet',
                                            points_palette_samples=10,
-                                           confidence_threshold=0)
+                                           confidence_threshold=confidence_threshold)
         return img[..., ::-1]  # Return RGB as original
 
     def pre_img(self, img):
@@ -343,6 +343,8 @@ if __name__ == "__main__":
                         help='[s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H]')
     parser.add_argument('--yolo-size', type=int, required=False, default=320,
                         help='YOLOv5 image size during inference')
+    parser.add_argument('--conf-threshold', type=float, required=False, default=0.5,
+                        help='Minimum confidence for keypoints to be drawn. [0, 1] range')
     parser.add_argument('--rotate', type=int, choices=[0, 90, 180, 270],
                         required=False, default=0,
                         help='Rotate the image of [90, 180, 270] degress counterclockwise')
@@ -430,7 +432,7 @@ if __name__ == "__main__":
     print(f'>>> Running inference on {input_path}')
     keypoints = []
     fps = []
-    tstart = time.time()
+    tot_time = 0
     for (ith, img) in tqdm.tqdm(enumerate(reader), total=total_frames):
         t0 = time.time()
 
@@ -438,12 +440,14 @@ if __name__ == "__main__":
         frame_keypoints = model.inference(img)
         keypoints.append(frame_keypoints)
 
-        fps.append(time.time() - t0)
+        delta = time.time() - t0
+        tot_time += delta
+        fps.append(delta)
 
         # Draw the poses and save the output img
         if args.show or args.save_img:
             # Draw result and transform to BGR
-            img = model.draw(args.show_yolo, args.show_raw_yolo)[..., ::-1]
+            img = model.draw(args.show_yolo, args.show_raw_yolo, args.conf_threshold)[..., ::-1]
 
             if args.save_img:
                 # TODO: If exists add (1), (2), ...
@@ -457,9 +461,9 @@ if __name__ == "__main__":
                 cv2.imshow('preview', img)
                 cv2.waitKey(wait)
 
+
     if is_video:
         tot_poses = sum(len(k) for k in keypoints)
-        tot_time = time.time() - tstart
         print(f'>>> Mean inference FPS: {1 / np.mean(fps):.2f}')
         print(f'>>> Total poses predicted: {tot_poses} mean per frame: '
               f'{(tot_poses / (ith + 1)):.2f}')
