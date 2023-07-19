@@ -65,34 +65,35 @@ To run inference from command line you can use the `inference.py` script as foll
 (be sure to `cd easy_ViTPose/easy_ViTPose/`)  
 ```bash
 $ python inference.py --help
-usage: inference.py [-h] [--input INPUT] [--output-path OUTPUT_PATH] --model MODEL
-                    [--model-name MODEL_NAME] [--yolo-size YOLO_SIZE] [--rotate {0,90,180,270}]
-                    [--yolo-step YOLO_STEP] [--yolo-nano] [--single-pose] [--show] [--show-yolo]
-                    [--show-raw-yolo] [--save-img] [--save-json]
+usage: inference.py [-h] [--input INPUT] [--output-path OUTPUT_PATH] --model MODEL [--model-name MODEL_NAME]
+                    [--yolo-size YOLO_SIZE] [--conf-threshold CONF_THRESHOLD] [--rotate {0,90,180,270}]
+                    [--yolo-step YOLO_STEP] [--yolo-nano] [--single-pose] [--show] [--show-yolo] [--show-raw-yolo]
+                    [--save-img] [--save-json]
 
 optional arguments:
   -h, --help            show this help message and exit
   --input INPUT         path to image / video or webcam ID (=cv2)
   --output-path OUTPUT_PATH
-                        output path, if the path provided is a directory output files are
-                        "input_name +_result{extension}".
+                        output path, if the path provided is a directory output files are "input_name
+                        +_result{extension}".
   --model MODEL         checkpoint path of the model
   --model-name MODEL_NAME
                         [s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H]
   --yolo-size YOLO_SIZE
                         YOLOv5 image size during inference
+  --conf-threshold CONF_THRESHOLD
+                        Minimum confidence for keypoints to be drawn. [0, 1] range
   --rotate {0,90,180,270}
                         Rotate the image of [90, 180, 270] degress counterclockwise
   --yolo-step YOLO_STEP
-                        The tracker can be used to predict the bboxes instead of yolo for
-                        performance, this flag specifies how often yolo is applied (e.g. 1 applies
-                        yolo every frame). This does not have any effect when is_video is False
+                        The tracker can be used to predict the bboxes instead of yolo for performance, this flag
+                        specifies how often yolo is applied (e.g. 1 applies yolo every frame). This does not have any
+                        effect when is_video is False
   --yolo-nano           Use (the very fast) yolo nano (instead of small)
   --single-pose         Do not use SORT tracker because single pose is expected in the video
   --show                preview result during inference
   --show-yolo           draw yolo results
-  --show-raw-yolo       draw yolo result before that SORT is applied for tracking (only valid during
-                        video inference)
+  --show-raw-yolo       draw yolo result before that SORT is applied for tracking (only valid during video inference)
   --save-img            save image results
   --save-json           save json results
 ```
@@ -183,7 +184,7 @@ The output format of the json files:
 - parallel batched inference
 - ~~tuning the parameters of the SORT~~ (to be tested)
 - ~~allow for skip frames of yolo detection (to have faster inference) leveraging the SORT for tracking during those frames.~~
-- confidence masking on skeleton drawing (add arg)
+- ~~confidence masking on skeleton drawing (add arg)~~
   
 Feel free to open issues, pull requests and contribute on these TODOs.
 
