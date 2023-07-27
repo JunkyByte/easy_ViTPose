@@ -5,6 +5,6 @@ setup(
     author="JunkyByte",
     author_email="adriano.donninelli@hotmail.it",
     version='0.2',
-    url="https://github.com/JunkyByte/easy_ViTPose"
+    url="https://github.com/JunkyByte/easy_ViTPose",
     packages=find_packages(include=['easy_ViTPose', 'easy_ViTPose.*']),
 )
