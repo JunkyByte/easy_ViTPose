@@ -1,6 +1,5 @@
 import abc
 import time
-from collections import deque
 from typing import Optional
 import json
 import os
@@ -33,6 +32,8 @@ except ModuleNotFoundError:
     pass
 
 __all__ = ['VitInference']
+MEAN = [0.485, 0.456, 0.406]
+STD = [0.229, 0.224, 0.225]
 
 
 class VitInference:
@@ -209,7 +210,7 @@ class VitInference:
         Returns:
             ndarray: Inference results.
         """
-        ...
+
         # First use YOLOv5 for detection
         res_pd = np.empty((0, 5))
         results = None
@@ -289,8 +290,8 @@ class VitInference:
 
     def pre_img(self, img):
         org_h, org_w = img.shape[:2]
-        img_input = cv2.resize(img, self.target_size, interpolation=cv2.INTER_LINEAR)
-        img_input = img_input.astype(np.float32).transpose(2, 0, 1)[None, ...] / 255
+        img_input = cv2.resize(img, self.target_size, interpolation=cv2.INTER_LINEAR) / 255
+        img_input = ((img_input - MEAN) / STD).transpose(2, 0, 1)[None].astype(np.float32)
         return img_input, org_h, org_w
 
     @torch.no_grad()
@@ -460,7 +461,6 @@ if __name__ == "__main__":
             if args.show:
                 cv2.imshow('preview', img)
                 cv2.waitKey(wait)
-
 
     if is_video:
         tot_poses = sum(len(k) for k in keypoints)
