@@ -10,6 +10,7 @@ import cv2
 import numpy as np
 import torch
 
+from easy_ViTPose.configs.ViTPose_common import data_cfg
 from easy_ViTPose.vit_models.model import ViTPose
 from easy_ViTPose.vit_utils.top_down_eval import keypoints_from_heatmaps
 from easy_ViTPose.vit_utils.visualization import draw_points_and_skeleton, joints_dict
@@ -100,26 +101,19 @@ class VitInference:
         assert model_name in [None, 's', 'b', 'l', 'h'], \
             f'The model name {model_name} is not valid'
 
-        # onnx / trt models do not require model_cfg specification, but we need img size
-        # TODO: These can be replaced, during inference they are almost useless, only
-        # needed for img size and torch version of the model.
+        # onnx / trt models do not require model_cfg specification
         if model_name is None:
             assert use_onnx or use_trt, \
                 'Specify the model_name if not using onnx / trt'
-            model_name = 's'
-
-        if model_name == 's':
-            from configs.ViTPose_small_coco_256x192 import model as model_cfg
-            from configs.ViTPose_small_coco_256x192 import data_cfg
-        elif model_name == 'b':
-            from configs.ViTPose_base_coco_256x192 import model as model_cfg
-            from configs.ViTPose_base_coco_256x192 import data_cfg
-        elif model_name == 'l':
-            from configs.ViTPose_large_coco_256x192 import model as model_cfg
-            from configs.ViTPose_large_coco_256x192 import data_cfg
-        elif model_name == 'h':
-            from configs.ViTPose_huge_coco_256x192 import model as model_cfg
-            from configs.ViTPose_huge_coco_256x192 import data_cfg
+        else:
+            if model_name == 's':
+                from configs.ViTPose_small_coco_256x192 import model as model_cfg
+            elif model_name == 'b':
+                from configs.ViTPose_base_coco_256x192 import model as model_cfg
+            elif model_name == 'l':
+                from configs.ViTPose_large_coco_256x192 import model as model_cfg
+            elif model_name == 'h':
+                from configs.ViTPose_huge_coco_256x192 import model as model_cfg
 
         self.target_size = data_cfg['image_size']
         if use_onnx:
