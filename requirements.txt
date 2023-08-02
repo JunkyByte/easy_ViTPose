@@ -4,8 +4,8 @@ ffmpeg==1.4
 json_tricks==3.16.1
 matplotlib>=3.5.2
 munkres==1.1.4
-numpy==1.23.5
-opencv_python==4.6.0.66
+numpy>=1.23.5
+opencv_python>=4.6.0.66
 Pillow==9.5.0
 pycocotools==2.0.6
 PyYAML==6.0
