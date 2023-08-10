@@ -124,7 +124,7 @@ keypoints = model.inference(img)
 # call model.reset() after each video
 
 img = model.draw(show_yolo=True)  # Returns RGB image with drawings
-cv2.imshow('image', img)
+cv2.imshow('image', cv2.cvtColor(img, cv2.COLOR_RGB2BGR)); cv2.waitKey(0)
 ```
 If the input file is a video [SORT](https://github.com/abewley/sort) is used to track people IDs and output consistent identifications.
 
