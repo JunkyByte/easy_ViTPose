@@ -57,6 +57,8 @@ cd easy_ViTPose/
 pip install -e .
 pip install -r requirements.txt
 ```
+
+### Download models
 #### NEW: You can now download models with `downloader.py`!
 - Download the models from [Huggingface](https://huggingface.co/JunkyByte/easy_ViTPose) or with `downloader.py`
 ```bash
@@ -71,8 +73,9 @@ optional arguments:
                         [s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H, YOLO-S: YOLO-S, YOLO-N: YOLO-N]
   --output OUTPUT       Dir path for checkpoint output
 ```
-If you encounter problems with ONNX and TRT checkpoints try generate them again by yourself.
-To do so you can check the (OUTDATED) `to_trt.ipynb` and `to_onnx.ipynb` notebooks or use the new `export.py`.
+If you encounter problems with ONNX and TRT checkpoints try to generate them again by yourself.  
+(OUTDATED: check `to_trt.ipynb` and `to_onnx.ipynb` notebooks)
+#### NEW: Generate onnx and trt checkpoints using `export.py`!
 ```bash
 $ python export.py --help
 usage: export.py [-h] --model-ckpt MODEL_CKPT --model-name {s,b,l,h} [--output OUTPUT]
@@ -86,6 +89,7 @@ optional arguments:
   --output OUTPUT       File (without extension) or dir path for checkpoint output
 ```
 
+### Run inference
 To run inference from command line you can use the `inference.py` script as follows:  
 (be sure to `cd easy_ViTPose/easy_ViTPose/`)  
 ```bash
@@ -153,11 +157,7 @@ cv2.imshow('image', cv2.cvtColor(img, cv2.COLOR_RGB2BGR)); cv2.waitKey(0)
 ```
 If the input file is a video [SORT](https://github.com/abewley/sort) is used to track people IDs and output consistent identifications.
 
-## Finetuning
-Finetuning is done with `train.py` on COCO + feet.  
-Check `datasets/COCO.py`, `config.yaml` and `train.py` for details.
-
-### Output json format
+### OUTPUT json format
 The output format of the json files:
 
 ```
@@ -197,6 +197,11 @@ The output format of the json files:
     }
 }
 ```
+
+
+## Finetuning
+Finetuning is done with `train.py` on COCO + feet.  
+Check `datasets/COCO.py`, `config.yaml` and `train.py` for details.
 
 ---
 
