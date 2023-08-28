@@ -50,7 +50,10 @@ The skeleton keypoint ordering can be found in [visualization.py](https://github
 
 ## Installation and Usage
 #### NEW: easy_ViTPose is now a package for easier custom inference  
-You now need to install the repo, I did not enforce the `requirements.txt` as they are not thoroughly tested, be sure to install the necessary packages by yourself. To use the MPS support be sure to install a compatible torch version.
+> ![IMPORTANT]
+> I did not enforce the `requirements.txt` as they are not thoroughly tested, be sure to install the necessary packages by yourself.
+> To use MPS be sure to install a compatible torch version.
+
 ```bash
 git clone git@github.com:JunkyByte/easy_ViTPose.git
 cd easy_ViTPose/
@@ -59,7 +62,6 @@ pip install -r requirements.txt
 ```
 
 ### Download models
-#### NEW: You can now download models with `downloader.py`!
 - Download the models from [Huggingface](https://huggingface.co/JunkyByte/easy_ViTPose) or with `downloader.py`
 ```bash
 $ python downloader.py --help
@@ -73,9 +75,9 @@ optional arguments:
                         [s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H, YOLO-S: YOLO-S, YOLO-N: YOLO-N]
   --output OUTPUT       Dir path for checkpoint output
 ```
-If you encounter problems with ONNX and TRT checkpoints try to generate them again by yourself.  
-(OUTDATED: check `to_trt.ipynb` and `to_onnx.ipynb` notebooks)
-#### NEW: Generate onnx and trt checkpoints using `export.py`!
+
+> [!NOTE]   
+> If you encounter any problem with ONNX and TRT checkpoints, generate them again by yourself using `export.py`
 ```bash
 $ python export.py --help
 usage: export.py [-h] --model-ckpt MODEL_CKPT --model-name {s,b,l,h} [--output OUTPUT]
@@ -155,7 +157,8 @@ keypoints = model.inference(img)
 img = model.draw(show_yolo=True)  # Returns RGB image with drawings
 cv2.imshow('image', cv2.cvtColor(img, cv2.COLOR_RGB2BGR)); cv2.waitKey(0)
 ```
-If the input file is a video [SORT](https://github.com/abewley/sort) is used to track people IDs and output consistent identifications.
+> [!NOTE]
+> If the input file is a video [SORT](https://github.com/abewley/sort) is used to track people IDs and output consistent identifications.
 
 ### OUTPUT json format
 The output format of the json files:
