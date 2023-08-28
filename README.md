@@ -57,18 +57,47 @@ cd easy_ViTPose/
 pip install -e .
 pip install -r requirements.txt
 ```
-- Download the models from [Huggingface](https://huggingface.co/JunkyByte/easy_ViTPose)  
-Right now, when using `inference.py` the yolo models are loaded from same folder of the script so place them there :)  
-The ONNX and tensorrt models were generated using the jupyter notebooks you can find in `easy_ViTPose/`, if you have problems running these checkpoints try to recreate them by yourself using the `.pth` checkpoints.
 
+### Download models
+#### NEW: You can now download models with `downloader.py`!
+- Download the models from [Huggingface](https://huggingface.co/JunkyByte/easy_ViTPose) or with `downloader.py`
+```bash
+$ python downloader.py --help
+usage: downloader.py [-h] --backend {torch,onnx,tensorrt} --model-name {s,b,l,h} [--output OUTPUT]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --backend {torch,onnx,tensorrt}
+                        Model backend [torch, onnx, tensorrt]
+  --model-name {s,b,l,h}
+                        [s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H, YOLO-S: YOLO-S, YOLO-N: YOLO-N]
+  --output OUTPUT       Dir path for checkpoint output
+```
+If you encounter problems with ONNX and TRT checkpoints try to generate them again by yourself.  
+(OUTDATED: check `to_trt.ipynb` and `to_onnx.ipynb` notebooks)
+#### NEW: Generate onnx and trt checkpoints using `export.py`!
+```bash
+$ python export.py --help
+usage: export.py [-h] --model-ckpt MODEL_CKPT --model-name {s,b,l,h} [--output OUTPUT]
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --model-ckpt MODEL_CKPT
+                        The torch model that shall be used for conversion
+  --model-name {s,b,l,h}
+                        [s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H]
+  --output OUTPUT       File (without extension) or dir path for checkpoint output
+```
+
+### Run inference
 To run inference from command line you can use the `inference.py` script as follows:  
 (be sure to `cd easy_ViTPose/easy_ViTPose/`)  
 ```bash
 $ python inference.py --help
-usage: inference.py [-h] [--input INPUT] [--output-path OUTPUT_PATH] --model MODEL [--model-name MODEL_NAME]
-                    [--yolo-size YOLO_SIZE] [--conf-threshold CONF_THRESHOLD] [--rotate {0,90,180,270}]
-                    [--yolo-step YOLO_STEP] [--yolo-nano] [--single-pose] [--show] [--show-yolo] [--show-raw-yolo]
-                    [--save-img] [--save-json]
+usage: inference.py [-h] [--input INPUT] [--output-path OUTPUT_PATH] --model MODEL [--yolo YOLO]
+                    [--model-name {s,b,l,h}] [--yolo-size YOLO_SIZE] [--conf-threshold CONF_THRESHOLD]
+                    [--rotate {0,90,180,270}] [--yolo-step YOLO_STEP] [--single-pose] [--show] [--show-yolo]
+                    [--show-raw-yolo] [--save-img] [--save-json]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -77,7 +106,8 @@ optional arguments:
                         output path, if the path provided is a directory output files are "input_name
                         +_result{extension}".
   --model MODEL         checkpoint path of the model
-  --model-name MODEL_NAME
+  --yolo YOLO           checkpoint path of the yolo model
+  --model-name {s,b,l,h}
                         [s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H]
   --yolo-size YOLO_SIZE
                         YOLOv5 image size during inference
@@ -89,7 +119,6 @@ optional arguments:
                         The tracker can be used to predict the bboxes instead of yolo for performance, this flag
                         specifies how often yolo is applied (e.g. 1 applies yolo every frame). This does not have any
                         effect when is_video is False
-  --yolo-nano           Use (the very fast) yolo nano (instead of small)
   --single-pose         Do not use SORT tracker because single pose is expected in the video
   --show                preview result during inference
   --show-yolo           draw yolo results
@@ -128,11 +157,7 @@ cv2.imshow('image', cv2.cvtColor(img, cv2.COLOR_RGB2BGR)); cv2.waitKey(0)
 ```
 If the input file is a video [SORT](https://github.com/abewley/sort) is used to track people IDs and output consistent identifications.
 
-## Finetuning
-Finetuning is done with `train.py` on COCO + feet.  
-Check `datasets/COCO.py`, `config.yaml` and `train.py` for details.
-
-### Output json format
+### OUTPUT json format
 The output format of the json files:
 
 ```
@@ -173,13 +198,18 @@ The output format of the json files:
 }
 ```
 
+
+## Finetuning
+Finetuning is done with `train.py` on COCO + feet.  
+Check `datasets/COCO.py`, `config.yaml` and `train.py` for details.
+
 ---
 
 ## TODO:
 - Tensorrt version of yolo
 - ~~Add possibility to not use tracker if single pose is expected in a video (benchmark the tracker)~~
 - ~~package setup~~
-- download models automatically when using CLI
+- ~~Download models with script~~
 - benchmark and check bottlenecks of inference pipeline
 - parallel batched inference
 - ~~tuning the parameters of the SORT~~ (to be tested)
@@ -189,5 +219,6 @@ The output format of the json files:
 Feel free to open issues, pull requests and contribute on these TODOs.
 
 ## Reference
-This code is substantially a fork of [jaehyunnn/ViTPose_pytorch](https://github.com/jaehyunnn/ViTPose_pytorch), without Jaehyunnn work this repo would not be possible. Thanks to the VitPose authors and their official implementation [ViTAE-Transformer/ViTPose](https://github.com/ViTAE-Transformer/ViTPose).  
+This code started as a fork of [jaehyunnn/ViTPose_pytorch](https://github.com/jaehyunnn/ViTPose_pytorch).  
+Thanks to the VitPose authors and their official implementation [ViTAE-Transformer/ViTPose](https://github.com/ViTAE-Transformer/ViTPose).  
 The SORT code is taken from [abewley/sort](https://github.com/abewley/sort)

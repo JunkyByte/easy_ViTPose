@@ -10,12 +10,12 @@ import cv2
 import numpy as np
 import torch
 
-from easy_ViTPose.configs.ViTPose_common import data_cfg
-from easy_ViTPose.vit_models.model import ViTPose
-from easy_ViTPose.vit_utils.top_down_eval import keypoints_from_heatmaps
-from easy_ViTPose.vit_utils.visualization import draw_points_and_skeleton, joints_dict
-from easy_ViTPose.vit_utils.inference import pad_image, VideoReader, NumpyEncoder, draw_bboxes
-from easy_ViTPose.sort import Sort
+from configs.ViTPose_common import data_cfg
+from vit_models.model import ViTPose
+from vit_utils.top_down_eval import keypoints_from_heatmaps
+from vit_utils.visualization import draw_points_and_skeleton, joints_dict
+from vit_utils.inference import pad_image, VideoReader, NumpyEncoder, draw_bboxes
+from sort import Sort
 
 try:  # Add bools -> error stack
     import pycuda.driver as cuda  # noqa: [F401]
@@ -43,7 +43,7 @@ class VitInference:
 
     Args:
         model (str): Path to the ViT model file (.pth, .onnx, .engine).
-        yolo_name (str): Name of the YOLOv5 model to load.
+        yolo (str): Path of the YOLOv5 model to load.
         model_name (str, optional): Name of the ViT model architecture to use. Valid values are 's', 'b', 'l', 'h'.
                                     Defaults to None, is necessary when using .pth checkpoints.
         yolo_size (int, optional): Size of the input image for YOLOv5 model. Defaults to 320.
@@ -58,7 +58,7 @@ class VitInference:
     """
 
     def __init__(self, model: str,
-                 yolo_name: str,
+                 yolo: str,
                  model_name: Optional[str] = None,
                  yolo_size: Optional[int] = 320,
                  device: Optional[str] = None,
@@ -66,7 +66,7 @@ class VitInference:
                  single_pose: Optional[bool] = False,
                  yolo_step: Optional[int] = 1):
         assert os.path.isfile(model), f'The model file {model} does not exist'
-        assert os.path.isfile(yolo_name), f'The YOLOv5 model {yolo_name} does not exist'
+        assert os.path.isfile(yolo), f'The YOLOv5 model {yolo} does not exist'
 
         # Device priority is cuda / mps / cpu
         if device is None:
@@ -78,7 +78,7 @@ class VitInference:
                 device = 'cpu'
 
         self.device = torch.device(device)
-        self.yolo = torch.hub.load("ultralytics/yolov5", "custom", yolo_name)
+        self.yolo = torch.hub.load("ultralytics/yolov5", "custom", yolo)
         self.yolo.to(self.device)
         self.yolo.classes = [0]
         self.yolo_size = yolo_size
@@ -334,7 +334,9 @@ if __name__ == "__main__":
                         'output files are "input_name +_result{extension}".')
     parser.add_argument('--model', type=str, required=True,
                         help='checkpoint path of the model')
-    parser.add_argument('--model-name', type=str, required=False,
+    parser.add_argument('--yolo', type=str, required=False, default=None,
+                        help='checkpoint path of the yolo model')
+    parser.add_argument('--model-name', type=str, required=False, choices=['s', 'b', 'l', 'h'],
                         help='[s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H]')
     parser.add_argument('--yolo-size', type=int, required=False, default=320,
                         help='YOLOv5 image size during inference')
@@ -348,8 +350,6 @@ if __name__ == "__main__":
                         help='The tracker can be used to predict the bboxes instead of yolo for performance, '
                              'this flag specifies how often yolo is applied (e.g. 1 applies yolo every frame). '
                              'This does not have any effect when is_video is False')
-    parser.add_argument('--yolo-nano', default=False, action='store_true',
-                        help='Use (the very fast) yolo nano (instead of small)')
     parser.add_argument('--single-pose', default=False, action='store_true',
                         help='Do not use SORT tracker because single pose is expected in the video')
     parser.add_argument('--show', default=False, action='store_true',
@@ -368,9 +368,9 @@ if __name__ == "__main__":
     use_mps = hasattr(torch.backends, 'mps') and torch.backends.mps.is_available()
 
     # Load Yolo
-    model_name = 'yolov5n' if args.yolo_nano else 'yolov5s'
-    yolo_model = model_name + ('.onnx' if has_onnx and not use_mps else '.pt')
-
+    yolo = args.yolo
+    if yolo is None:
+        yolo = 'yolov5s' + ('.onnx' if has_onnx and not use_mps else '.pt')
     input_path = args.input
     ext = input_path[input_path.rfind('.'):]
 
@@ -418,7 +418,7 @@ if __name__ == "__main__":
         reader = [np.array(Image.open(input_path).rotate(args.rotate))]
 
     # Initialize model
-    model = VitInference(args.model, yolo_model, args.model_name,
+    model = VitInference(args.model, yolo, args.model_name,
                          args.yolo_size, is_video=is_video,
                          single_pose=args.single_pose,
                          yolo_step=args.yolo_step)
