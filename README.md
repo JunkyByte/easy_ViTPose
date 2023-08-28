@@ -50,7 +50,7 @@ The skeleton keypoint ordering can be found in [visualization.py](https://github
 
 ## Installation and Usage
 #### NEW: easy_ViTPose is now a package for easier custom inference  
-> ![IMPORTANT]   
+> [!IMPORTANT]
 > I did not enforce the `requirements.txt` as they are not thoroughly tested, be sure to install the necessary packages by yourself.
 > To use MPS be sure to install a compatible torch version.
 
@@ -76,7 +76,7 @@ optional arguments:
   --output OUTPUT       Dir path for checkpoint output
 ```
 
-> [!NOTE]   
+> [!NOTE]
 > If you encounter any problem with ONNX and TRT checkpoints, generate them again by yourself using `export.py`
 ```bash
 $ python export.py --help
@@ -157,7 +157,7 @@ keypoints = model.inference(img)
 img = model.draw(show_yolo=True)  # Returns RGB image with drawings
 cv2.imshow('image', cv2.cvtColor(img, cv2.COLOR_RGB2BGR)); cv2.waitKey(0)
 ```
-> [!NOTE]   
+> [!NOTE]
 > If the input file is a video [SORT](https://github.com/abewley/sort) is used to track people IDs and output consistent identifications.
 
 ### OUTPUT json format
