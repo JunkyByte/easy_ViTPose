@@ -2,7 +2,7 @@ import os
 import torch
 import argparse
 
-from vit_models.model import ViTPose
+from easy_ViTPose.vit_models.model import ViTPose
 
 
 parser = argparse.ArgumentParser()
@@ -16,13 +16,13 @@ args = parser.parse_args()
 
 # Load model config
 if args.model_name == 's':
-    from configs.ViTPose_small_coco_256x192 import model as model_cfg
+    from easy_ViTPose.configs.ViTPose_small_coco_256x192 import model as model_cfg
 elif args.model_name == 'b':
-    from configs.ViTPose_base_coco_256x192 import model as model_cfg
+    from easy_ViTPose.configs.ViTPose_base_coco_256x192 import model as model_cfg
 elif args.model_name == 'l':
-    from configs.ViTPose_large_coco_256x192 import model as model_cfg
+    from easy_ViTPose.configs.ViTPose_large_coco_256x192 import model as model_cfg
 elif args.model_name == 'h':
-    from configs.ViTPose_huge_coco_256x192 import model as model_cfg
+    from easy_ViTPose.configs.ViTPose_huge_coco_256x192 import model as model_cfg
 
 # Convert to onnx and save
 print('>>> Converting to ONNX')

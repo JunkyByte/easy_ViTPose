@@ -10,12 +10,12 @@ import cv2
 import numpy as np
 import torch
 
-from configs.ViTPose_common import data_cfg
-from vit_models.model import ViTPose
-from vit_utils.top_down_eval import keypoints_from_heatmaps
-from vit_utils.visualization import draw_points_and_skeleton, joints_dict
-from vit_utils.inference import pad_image, VideoReader, NumpyEncoder, draw_bboxes
-from sort import Sort
+from easy_ViTPose.configs.ViTPose_common import data_cfg
+from easy_ViTPose.vit_models.model import ViTPose
+from easy_ViTPose.vit_utils.top_down_eval import keypoints_from_heatmaps
+from easy_ViTPose.vit_utils.visualization import draw_points_and_skeleton, joints_dict
+from easy_ViTPose.vit_utils.inference import pad_image, VideoReader, NumpyEncoder, draw_bboxes
+from easy_ViTPose.sort import Sort
 
 try:  # Add bools -> error stack
     import pycuda.driver as cuda  # noqa: [F401]
