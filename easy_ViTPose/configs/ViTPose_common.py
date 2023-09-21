@@ -25,13 +25,6 @@ lr_config = dict(
 
 total_epochs = 4
 target_type = 'GaussianHeatmap'
-channel_cfg = dict(
-    num_output_channels=25,
-    dataset_joints=25,
-    dataset_channel=[[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-                      16, 17, 18, 19, 20, 21, 22, 23, 24], ],
-    inference_channel=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-                       16, 17, 18, 19, 20, 21, 22, 23, 24])
 
 data_cfg = dict(
     image_size=[192, 256],
@@ -72,3 +65,135 @@ data = dict(
         img_prefix=f'{data_root}/val2017/',
         data_cfg=data_cfg)
 )
+
+model_small = dict(
+    type='TopDown',
+    pretrained=None,
+    backbone=dict(
+        type='ViT',
+        img_size=(256, 192),
+        patch_size=16,
+        embed_dim=384,
+        depth=12,
+        num_heads=12,
+        ratio=1,
+        use_checkpoint=False,
+        mlp_ratio=4,
+        qkv_bias=True,
+        drop_path_rate=0.1,
+    ),
+    keypoint_head=dict(
+        type='TopdownHeatmapSimpleHead',
+        in_channels=384,
+        num_deconv_layers=2,
+        num_deconv_filters=(256, 256),
+        num_deconv_kernels=(4, 4),
+        extra=dict(final_conv_kernel=1, ),
+        loss_keypoint=dict(type='JointsMSELoss', use_target_weight=True)),
+    train_cfg=dict(),
+    test_cfg=dict(
+        flip_test=True,
+        post_process='default',
+        shift_heatmap=False,
+        target_type=target_type,
+        modulate_kernel=11,
+        use_udp=True))
+
+model_base = dict(
+    type='TopDown',
+    pretrained=None,
+    backbone=dict(
+        type='ViT',
+        img_size=(256, 192),
+        patch_size=16,
+        embed_dim=768,
+        depth=12,
+        num_heads=12,
+        ratio=1,
+        use_checkpoint=False,
+        mlp_ratio=4,
+        qkv_bias=True,
+        drop_path_rate=0.3,
+    ),
+    keypoint_head=dict(
+        type='TopdownHeatmapSimpleHead',
+        in_channels=768,
+        num_deconv_layers=2,
+        num_deconv_filters=(256, 256),
+        num_deconv_kernels=(4, 4),
+        extra=dict(final_conv_kernel=1, ),
+        loss_keypoint=dict(type='JointsMSELoss', use_target_weight=True)),
+    train_cfg=dict(),
+    test_cfg=dict(
+        flip_test=True,
+        post_process='default',
+        shift_heatmap=False,
+        target_type=target_type,
+        modulate_kernel=11,
+        use_udp=True))
+
+model_large = dict(
+    type='TopDown',
+    pretrained=None,
+    backbone=dict(
+        type='ViT',
+        img_size=(256, 192),
+        patch_size=16,
+        embed_dim=1024,
+        depth=24,
+        num_heads=16,
+        ratio=1,
+        use_checkpoint=False,
+        mlp_ratio=4,
+        qkv_bias=True,
+        drop_path_rate=0.5,
+    ),
+    keypoint_head=dict(
+        type='TopdownHeatmapSimpleHead',
+        in_channels=1024,
+        num_deconv_layers=2,
+        num_deconv_filters=(256, 256),
+        num_deconv_kernels=(4, 4),
+        extra=dict(final_conv_kernel=1, ),
+        loss_keypoint=dict(type='JointsMSELoss', use_target_weight=True)),
+    train_cfg=dict(),
+    test_cfg=dict(
+        flip_test=True,
+        post_process='default',
+        shift_heatmap=False,
+        target_type=target_type,
+        modulate_kernel=11,
+        use_udp=True))
+
+model_huge = dict(
+    type='TopDown',
+    pretrained=None,
+    backbone=dict(
+        type='ViT',
+        img_size=(256, 192),
+        patch_size=16,
+        embed_dim=1280,
+        depth=32,
+        num_heads=16,
+        ratio=1,
+        use_checkpoint=False,
+        mlp_ratio=4,
+        qkv_bias=True,
+        drop_path_rate=0.55,
+    ),
+    keypoint_head=dict(
+        type='TopdownHeatmapSimpleHead',
+        in_channels=1280,
+        num_deconv_layers=2,
+        num_deconv_filters=(256, 256),
+        num_deconv_kernels=(4, 4),
+        extra=dict(final_conv_kernel=1, ),
+        loss_keypoint=dict(type='JointsMSELoss', use_target_weight=True)),
+    train_cfg=dict(),
+    test_cfg=dict(
+        flip_test=True,
+        post_process='default',
+        shift_heatmap=False,
+        target_type=target_type,
+        modulate_kernel=11,
+        use_udp=True))
