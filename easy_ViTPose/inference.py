@@ -4,6 +4,7 @@ from typing import Optional
 import json
 import os
 import tqdm
+import typing
 
 from PIL import Image
 import cv2
@@ -18,8 +19,8 @@ from easy_ViTPose.vit_utils.inference import pad_image, VideoReader, NumpyEncode
 from easy_ViTPose.sort import Sort
 
 try:  # Add bools -> error stack
-    import pycuda.driver as cuda  # noqa: [F401]
-    import pycuda.autoinit  # noqa: [F401]
+    import pycuda.driver as cuda  # noqa: F401
+    import pycuda.autoinit  # noqa: F401
     import utils_engine as engine_utils
     import tensorrt as trt
     has_trt = True
@@ -49,8 +50,10 @@ class VitInference:
         yolo_size (int, optional): Size of the input image for YOLOv5 model. Defaults to 320.
         device (str, optional): Device to use for inference. Defaults to 'cuda' if available, else 'cpu'.
         is_video (bool, optional): Flag indicating if the input is video. Defaults to False.
-        single_pose (bool, optional): Flag indicating if the video (on images this flag has no effect) will contain a single pose.
-                                      In this case the SORT tracker is not used (increasing performance) but people id tracking
+        single_pose (bool, optional): Flag indicating if the video (on images this flag has no effect)
+                                      will contain a single pose.
+                                      In this case the SORT tracker is not used (increasing performance)
+                                      but people id tracking
                                       won't be consistent among frames.
         yolo_step (int, optional): The tracker can be used to predict the bboxes instead of yolo for performance,
                                    this flag specifies how often yolo is applied (e.g. 1 applies yolo every frame).
@@ -144,8 +147,8 @@ class VitInference:
             self._vit_pose.to(device)
             inf_fn = self._inference_torch
 
-        # Override inference with selected engine
-        self._inference = inf_fn
+        # Override _inference abstract with selected engine
+        self._inference = inf_fn  # type: ignore
 
     def reset(self):
         """
@@ -181,7 +184,7 @@ class VitInference:
         return np.concatenate([points[:, :, ::-1], prob], axis=2)
 
     @abc.abstractmethod
-    def _inference(img: np.ndarray) -> np.ndarray:
+    def _inference(self, img: np.ndarray) -> np.ndarray:
         """
         Abstract method for performing inference on an image.
         It is overloaded by each inference engine.
@@ -194,7 +197,7 @@ class VitInference:
         """
         raise NotImplementedError
 
-    def inference(self, img: np.ndarray) -> np.ndarray:
+    def inference(self, img: np.ndarray) -> dict[typing.Any, typing.Any]:
         """
         Perform inference on the input image.
 
@@ -399,12 +402,12 @@ if __name__ == "__main__":
     total_frames = 1
     if is_video:
         reader = VideoReader(input_path, args.rotate)
-        cap = cv2.VideoCapture(input_path)
+        cap = cv2.VideoCapture(input_path)  # type: ignore
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         cap.release()
         wait = 15
         if args.save_img:
-            cap = cv2.VideoCapture(input_path)
+            cap = cv2.VideoCapture(input_path)  # type: ignore
             fps = cap.get(cv2.CAP_PROP_FPS)
             ret, frame = cap.read()
             cap.release()
@@ -413,21 +416,21 @@ if __name__ == "__main__":
             output_size = frame.shape[:2][::-1]
             out_writer = cv2.VideoWriter(output_path_img,
                                          cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'),
-                                         fps, output_size)
+                                         fps, output_size)  # type: ignore
     else:
-        reader = [np.array(Image.open(input_path).rotate(args.rotate))]
+        reader = [np.array(Image.open(input_path).rotate(args.rotate))]  # type: ignore
 
     # Initialize model
     model = VitInference(args.model, yolo, args.model_name,
                          args.yolo_size, is_video=is_video,
                          single_pose=args.single_pose,
-                         yolo_step=args.yolo_step)
+                         yolo_step=args.yolo_step)  # type: ignore
     print(f">>> Model loaded: {args.model}")
 
     print(f'>>> Running inference on {input_path}')
     keypoints = []
     fps = []
-    tot_time = 0
+    tot_time = 0.
     for (ith, img) in tqdm.tqdm(enumerate(reader), total=total_frames):
         t0 = time.time()
 
