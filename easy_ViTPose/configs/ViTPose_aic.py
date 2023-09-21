@@ -10,7 +10,11 @@ channel_cfg = dict(
     inference_channel=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
 
 # Set models channels
-model_small['keypoint_head']['out_channels'] = channel_cfg['num_output_channels']
-model_base['keypoint_head']['out_channels'] = channel_cfg['num_output_channels']
-model_large['keypoint_head']['out_channels'] = channel_cfg['num_output_channels']
-model_huge['keypoint_head']['out_channels'] = channel_cfg['num_output_channels']
+data_cfg['num_output_channels'] = channel_cfg['num_output_channels']
+data_cfg['num_joints']= channel_cfg['dataset_joints']
+data_cfg['dataset_channel']= channel_cfg['dataset_channel']
+data_cfg['inference_channel']= channel_cfg['inference_channel']
+
+names = ['small', 'base', 'large', 'huge']
+for name in names:
+    globals()[f'model_{name}']['keypoint_head']['out_channels'] = channel_cfg['num_output_channels']

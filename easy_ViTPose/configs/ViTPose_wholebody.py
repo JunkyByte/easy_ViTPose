@@ -2,10 +2,12 @@ from .ViTPose_common import *
 
 # Channel configuration
 channel_cfg = dict(
-    num_output_channels=16,
-    dataset_joints=16,
-    dataset_channel=list(range(16)),
-    inference_channel=list(range(16)))
+    num_output_channels=133,
+    dataset_joints=133,
+    dataset_channel=[
+        list(range(133)),
+    ],
+    inference_channel=list(range(133)))
 
 # Set models channels
 data_cfg['num_output_channels'] = channel_cfg['num_output_channels']

@@ -262,5 +262,5 @@ class Sort(object):
         if len(ret):
             return np.concatenate(ret)
         elif empty_dets:
-            return np.concatenate(unmatched)
+            return np.concatenate(unmatched) if len(unmatched) else np.empty((0, 6))
         return np.empty((0, 6))

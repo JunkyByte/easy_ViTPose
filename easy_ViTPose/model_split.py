@@ -32,20 +32,6 @@ def main():
 
     keys = ckpt['state_dict'].keys()
 
-    target_expert = 0
-    new_ckpt = copy.deepcopy(ckpt)
-
-    for key in keys:
-        if 'mlp.fc2' in key:
-            value = new_ckpt['state_dict'][key]
-            value = torch.cat([value, experts[key.replace('fc2.', f'experts.{target_expert}.')]], dim=0)
-            new_ckpt['state_dict'][key] = value
-
-    torch.save(new_ckpt, os.path.join(args.target, args.prefix + 'coco.pth'))
-    assert False
-
-    names = ['aic', 'mpii', 'ap10k', 'apt36k','wholebody']
-    num_keypoints = [14, 16, 17, 17, 133]
     weight_names = ['keypoint_head.deconv_layers.0.weight', 
                     'keypoint_head.deconv_layers.1.weight', 
                     'keypoint_head.deconv_layers.1.bias', 
@@ -61,6 +47,31 @@ def main():
                     'keypoint_head.final_layer.weight', 
                     'keypoint_head.final_layer.bias']
     
+    target_expert = 0
+    new_ckpt = copy.deepcopy(ckpt)
+
+    for key in keys:
+        if 'mlp.fc2' in key:
+            value = new_ckpt['state_dict'][key]
+            value = torch.cat([value, experts[key.replace('fc2.', f'experts.{target_expert}.')]], dim=0)
+            new_ckpt['state_dict'][key] = value
+
+    # remove unnecessary part in the state dict
+    for j in range(5):
+        # remove associate part
+        for tensor_name in weight_names:
+            new_ckpt['state_dict'].pop(tensor_name.replace('keypoint_head',
+                                                           f'associate_keypoint_heads.{j}'))
+    # remove expert part
+    keys = new_ckpt['state_dict'].keys()
+    for key in list(keys):
+        if 'expert' in key:
+            new_ckpt['state_dict'].pop(key)
+
+    torch.save(new_ckpt, os.path.join(args.target, args.prefix + 'coco.pth'))
+
+    names = ['aic', 'mpii', 'ap10k', 'apt36k','wholebody']
+    num_keypoints = [14, 16, 17, 17, 133]
     exist_range = True
 
     for i in range(5):
@@ -99,7 +110,7 @@ def main():
         # remove expert part
         keys = new_ckpt['state_dict'].keys()
         for key in list(keys):
-            if 'expert' in keys:
+            if 'expert' in key:
                 new_ckpt['state_dict'].pop(key)
             
         torch.save(new_ckpt, os.path.join(args.target, f'{args.prefix}{names[i]}.pth'))

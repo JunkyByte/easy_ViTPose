@@ -1,22 +1,29 @@
 import abc
-import time
-from typing import Optional
+from importlib import import_module
 import json
 import os
-import tqdm
+import re
+import time
+from typing import Optional
 import typing
 
 from PIL import Image
 import cv2
 import numpy as np
 import torch
+import tqdm
 
 from easy_ViTPose.configs.ViTPose_common import data_cfg
+from easy_ViTPose.sort import Sort
 from easy_ViTPose.vit_models.model import ViTPose
+from easy_ViTPose.vit_utils.inference import (
+    NumpyEncoder,
+    VideoReader,
+    draw_bboxes,
+    pad_image,
+)
 from easy_ViTPose.vit_utils.top_down_eval import keypoints_from_heatmaps
 from easy_ViTPose.vit_utils.visualization import draw_points_and_skeleton, joints_dict
-from easy_ViTPose.vit_utils.inference import pad_image, VideoReader, NumpyEncoder, draw_bboxes
-from easy_ViTPose.sort import Sort
 
 try:  # Add bools -> error stack
     import pycuda.driver as cuda  # noqa: F401
@@ -38,15 +45,45 @@ MEAN = [0.485, 0.456, 0.406]
 STD = [0.229, 0.224, 0.225]
 
 
+DETC_TO_YOLO_YOLOC = {
+    'human': [0],
+    'cat': [15],
+    'dog': [16],
+    'horse': [17],
+    'sheep': [18],
+    'cow': [19],
+    'elephant': [20],
+    'bear': [21],
+    'zebra': [22],
+    'giraffe': [23],
+    'animals': [15, 16, 17, 18, 19, 20, 21, 22, 23]
+}
+
+MODEL_ABBR_MAP = {
+    's': 'small',
+    'b': 'base',
+    'l': 'large',
+    'h': 'huge'
+}
+
+
 class VitInference:
     """
-    Class for performing inference using ViTPose models with YOLOv5 human detection detection and SORT tracking.
+    Class for performing inference using ViTPose models with YOLOv5 human detection and SORT tracking.
 
     Args:
         model (str): Path to the ViT model file (.pth, .onnx, .engine).
         yolo (str): Path of the YOLOv5 model to load.
-        model_name (str, optional): Name of the ViT model architecture to use. Valid values are 's', 'b', 'l', 'h'.
+        model_name (str, optional): Name of the ViT model architecture to use.
+                                    Valid values are 's', 'b', 'l', 'h'.
                                     Defaults to None, is necessary when using .pth checkpoints.
+        det_class (str, optional): the detection class. defaults to None which means also human.
+                                   valid values are 'human', 'cat', 'dog', 'horse', 'sheep',
+                                                    'cow', 'elephant', 'bear', 'zebra', 'giraffe',
+                                                    'animals' (which is all previous but human)
+        dataset (str, optional): Name of the dataset. If None it's extracted from the file name.
+                                 Valid values are 'coco', 'coco_25', 'wholebody', 'mpii',
+                                                  'ap10k', 'apt36k', 'aic'
         yolo_size (int, optional): Size of the input image for YOLOv5 model. Defaults to 320.
         device (str, optional): Device to use for inference. Defaults to 'cuda' if available, else 'cpu'.
         is_video (bool, optional): Flag indicating if the input is video. Defaults to False.
@@ -63,6 +100,8 @@ class VitInference:
     def __init__(self, model: str,
                  yolo: str,
                  model_name: Optional[str] = None,
+                 det_class: str = 'human',
+                 dataset: Optional[str] = None,
                  yolo_size: Optional[int] = 320,
                  device: Optional[str] = None,
                  is_video: Optional[bool] = False,
@@ -83,7 +122,6 @@ class VitInference:
         self.device = torch.device(device)
         self.yolo = torch.hub.load("ultralytics/yolov5", "custom", yolo)
         self.yolo.to(self.device)
-        self.yolo.classes = [0]
         self.yolo_size = yolo_size
         self.yolo_step = yolo_step
         self.is_video = is_video
@@ -101,6 +139,24 @@ class VitInference:
         use_onnx = model.endswith('.onnx')
         use_trt = model.endswith('.engine')
 
+        # Extract dataset name
+        if dataset is None:
+            p = r'-([a-zA-Z0-9]+)\.pth'
+            m = re.search(p, model)
+            assert m, 'Could not infer the dataset from model name, specify it'
+            dataset = m.group(1)
+
+        assert dataset in ['mpii', 'coco', 'coco_25', 'wholebody', 'aic', 'ap10k', 'apt36k'], \
+            'The specified dataset is not valid'
+
+        # Dataset can now be set for visualization
+        self.dataset = dataset
+
+        # if we picked the dataset switch to correct yolo classes if not set
+        if det_class is None:
+            det_class = 'animals' if dataset in ['ap10k', 'apt36k'] else 'human'
+        self.yolo.classes = DETC_TO_YOLO_YOLOC[det_class]
+
         assert model_name in [None, 's', 'b', 'l', 'h'], \
             f'The model name {model_name} is not valid'
 
@@ -109,14 +165,11 @@ class VitInference:
             assert use_onnx or use_trt, \
                 'Specify the model_name if not using onnx / trt'
         else:
-            if model_name == 's':
-                from configs.ViTPose_small_coco_256x192 import model as model_cfg
-            elif model_name == 'b':
-                from configs.ViTPose_base_coco_256x192 import model as model_cfg
-            elif model_name == 'l':
-                from configs.ViTPose_large_coco_256x192 import model as model_cfg
-            elif model_name == 'h':
-                from configs.ViTPose_huge_coco_256x192 import model as model_cfg
+            # Dynamically import the model class
+            config_name = f'configs.ViTPose_{self.dataset}'
+            imp = import_module(config_name)
+            model_name = f'model_{MODEL_ABBR_MAP[model_name]}'
+            model_cfg = getattr(imp, model_name)
 
         self.target_size = data_cfg['image_size']
         if use_onnx:
@@ -205,13 +258,13 @@ class VitInference:
             img (ndarray): Input image for inference in RGB format.
 
         Returns:
-            ndarray: Inference results.
+            dict[typing.Any, typing.Any]: Inference results.
         """
 
         # First use YOLOv5 for detection
         res_pd = np.empty((0, 5))
         results = None
-        if (self.tracker is None or
+        if (self.tracker is None or  # ignore: W504
            (self.frame_counter % self.yolo_step == 0 or self.frame_counter < 3)):
             results = self.yolo(img, size=self.yolo_size)
             res_pd = np.array([r[:5].tolist() for r in  # TODO: Confidence threshold
@@ -277,7 +330,7 @@ class VitInference:
         img = np.array(img)[..., ::-1]  # RGB to BGR for cv2 modules
         for idx, k in self._keypoints.items():
             img = draw_points_and_skeleton(img.copy(), k,
-                                           joints_dict()['coco']['skeleton'],
+                                           joints_dict()[self.dataset]['skeleton'],
                                            person_index=idx,
                                            points_color_palette='gist_rainbow',
                                            skeleton_color_palette='jet',
@@ -339,6 +392,12 @@ if __name__ == "__main__":
                         help='checkpoint path of the model')
     parser.add_argument('--yolo', type=str, required=False, default=None,
                         help='checkpoint path of the yolo model')
+    parser.add_argument('--dataset', type=str, required=False, default=None,
+                        help='Name of the dataset. If None it"s extracted from the file name. \
+                              ["coco", "coco_25", "wholebody", "mpii", "ap10k", "apt36k", "aic"]')
+    parser.add_argument('--det-class', type=str, required=False, default=None,
+                        help='["human", "cat", "dog", "horse", "sheep", \
+                               "cow", "elephant", "bear", "zebra", "giraffe", "animals"]')
     parser.add_argument('--model-name', type=str, required=False, choices=['s', 'b', 'l', 'h'],
                         help='[s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H]')
     parser.add_argument('--yolo-size', type=int, required=False, default=320,
@@ -422,6 +481,7 @@ if __name__ == "__main__":
 
     # Initialize model
     model = VitInference(args.model, yolo, args.model_name,
+                         args.det_class, args.dataset,
                          args.yolo_size, is_video=is_video,
                          single_pose=args.single_pose,
                          yolo_step=args.yolo_step)  # type: ignore
