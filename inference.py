@@ -177,7 +177,7 @@ if __name__ == "__main__":
         print('>>> Saving output json')
         with open(output_path_json, 'w') as f:
             out = {'keypoints': keypoints,
-                   'skeleton': joints_dict()['coco']['keypoints']}
+                   'skeleton': joints_dict()[model.dataset]['keypoints']}
             json.dump(out, f, cls=NumpyEncoder)
 
     if is_video and args.save_img:

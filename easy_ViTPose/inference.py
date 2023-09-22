@@ -240,7 +240,7 @@ class VitInference:
         # First use YOLOv8 for detection
         res_pd = np.empty((0, 5))
         results = None
-        if (self.tracker is None or  # ignore: W504
+        if (self.tracker is None or
            (self.frame_counter % self.yolo_step == 0 or self.frame_counter < 3)):
             results = self.yolo(img, verbose=False, imgsz=self.yolo_size)[0]
             res_pd = np.array([r[:5].tolist() for r in  # TODO: Confidence threshold
