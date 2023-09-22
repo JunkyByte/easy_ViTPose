@@ -1,41 +1,31 @@
 import abc
-import json
 import os
-import time
 from typing import Optional
 import typing
 
-from PIL import Image
 import cv2
 import numpy as np
 import torch
-import tqdm
+from ultralytics import YOLO
 
-from easy_ViTPose.configs.ViTPose_common import data_cfg
-from easy_ViTPose.sort import Sort
-from easy_ViTPose.vit_models.model import ViTPose
-from easy_ViTPose.vit_utils.inference import (
-    NumpyEncoder,
-    VideoReader,
-    draw_bboxes,
-    pad_image,
-)
-from easy_ViTPose.vit_utils.util import dyn_model_import, infer_dataset_by_path
-from easy_ViTPose.vit_utils.top_down_eval import keypoints_from_heatmaps
-from easy_ViTPose.vit_utils.visualization import draw_points_and_skeleton, joints_dict
+from .configs.ViTPose_common import data_cfg
+from .sort import Sort
+from .vit_models.model import ViTPose
+from .vit_utils.inference import draw_bboxes, pad_image
+from .vit_utils.top_down_eval import keypoints_from_heatmaps
+from .vit_utils.util import dyn_model_import, infer_dataset_by_path
+from .vit_utils.visualization import draw_points_and_skeleton, joints_dict
 
 try:  # Add bools -> error stack
     import pycuda.driver as cuda  # noqa: F401
     import pycuda.autoinit  # noqa: F401
-    import utils_engine as engine_utils
     import tensorrt as trt
-    has_trt = True
+    import utils_engine as engine_utils
 except ModuleNotFoundError:
     pass
 
 try:
     import onnxruntime
-    has_onnx = True
 except ModuleNotFoundError:
     pass
 
@@ -61,11 +51,11 @@ DETC_TO_YOLO_YOLOC = {
 
 class VitInference:
     """
-    Class for performing inference using ViTPose models with YOLOv5 human detection and SORT tracking.
+    Class for performing inference using ViTPose models with YOLOv8 human detection and SORT tracking.
 
     Args:
         model (str): Path to the ViT model file (.pth, .onnx, .engine).
-        yolo (str): Path of the YOLOv5 model to load.
+        yolo (str): Path of the YOLOv8 model to load.
         model_name (str, optional): Name of the ViT model architecture to use.
                                     Valid values are 's', 'b', 'l', 'h'.
                                     Defaults to None, is necessary when using .pth checkpoints.
@@ -76,7 +66,7 @@ class VitInference:
         dataset (str, optional): Name of the dataset. If None it's extracted from the file name.
                                  Valid values are 'coco', 'coco_25', 'wholebody', 'mpii',
                                                   'ap10k', 'apt36k', 'aic'
-        yolo_size (int, optional): Size of the input image for YOLOv5 model. Defaults to 320.
+        yolo_size (int, optional): Size of the input image for YOLOv8 model. Defaults to 320.
         device (str, optional): Device to use for inference. Defaults to 'cuda' if available, else 'cpu'.
         is_video (bool, optional): Flag indicating if the input is video. Defaults to False.
         single_pose (bool, optional): Flag indicating if the video (on images this flag has no effect)
@@ -100,7 +90,7 @@ class VitInference:
                  single_pose: Optional[bool] = False,
                  yolo_step: Optional[int] = 1):
         assert os.path.isfile(model), f'The model file {model} does not exist'
-        assert os.path.isfile(yolo), f'The YOLOv5 model {yolo} does not exist'
+        assert os.path.isfile(yolo), f'The YOLOv8 model {yolo} does not exist'
 
         # Device priority is cuda / mps / cpu
         if device is None:
@@ -112,7 +102,7 @@ class VitInference:
                 device = 'cpu'
 
         self.device = torch.device(device)
-        self.yolo = torch.hub.load("ultralytics/yolov5", "custom", yolo)
+        self.yolo = YOLO(yolo, task='detect')
         self.yolo.to(self.device)
         self.yolo_size = yolo_size
         self.yolo_step = yolo_step
@@ -247,14 +237,14 @@ class VitInference:
             dict[typing.Any, typing.Any]: Inference results.
         """
 
-        # First use YOLOv5 for detection
+        # First use YOLOv8 for detection
         res_pd = np.empty((0, 5))
         results = None
         if (self.tracker is None or  # ignore: W504
            (self.frame_counter % self.yolo_step == 0 or self.frame_counter < 3)):
-            results = self.yolo(img, size=self.yolo_size)
+            results = self.yolo(img, verbose=False, imgsz=self.yolo_size)[0]
             res_pd = np.array([r[:5].tolist() for r in  # TODO: Confidence threshold
-                               results.pandas().xyxy[0].to_numpy() if r[4] > 0.35]).reshape((-1, 5))
+                               results.boxes.data.cpu().numpy() if r[4] > 0.35]).reshape((-1, 5))
         self.frame_counter += 1
 
         frame_keypoints = {}
@@ -298,8 +288,8 @@ class VitInference:
         Draw keypoints and bounding boxes on the image.
 
         Args:
-            show_yolo (bool, optional): Whether to show YOLOv5 bounding boxes. Default is True.
-            show_raw_yolo (bool, optional): Whether to show raw YOLOv5 bounding boxes. Default is False.
+            show_yolo (bool, optional): Whether to show YOLOv8 bounding boxes. Default is True.
+            show_raw_yolo (bool, optional): Whether to show raw YOLOv8 bounding boxes. Default is False.
 
         Returns:
             ndarray: Image with keypoints and bounding boxes drawn.
@@ -308,7 +298,7 @@ class VitInference:
         bboxes, ids, scores = self._tracker_res
 
         if self._yolo_res is not None and (show_raw_yolo or (self.tracker is None and show_yolo)):
-            img = np.array(self._yolo_res.render())[0]
+            img = np.array(self._yolo_res.plot())
 
         if show_yolo and self.tracker is not None:
             img = draw_bboxes(img, bboxes, ids, scores)
@@ -364,161 +354,3 @@ class VitInference:
         # Reshape to output size
         heatmaps = heatmaps.reshape(1, 25, img_input.shape[2] // 4, img_input.shape[3] // 4)
         return self.postprocess(heatmaps, org_w, org_h)
-
-
-if __name__ == "__main__":
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--input', type=str, default='examples/sample.jpg',
-                        help='path to image / video or webcam ID (=cv2)')
-    parser.add_argument('--output-path', type=str, default='',
-                        help='output path, if the path provided is a directory '
-                        'output files are "input_name +_result{extension}".')
-    parser.add_argument('--model', type=str, required=True,
-                        help='checkpoint path of the model')
-    parser.add_argument('--yolo', type=str, required=False, default=None,
-                        help='checkpoint path of the yolo model')
-    parser.add_argument('--dataset', type=str, required=False, default=None,
-                        help='Name of the dataset. If None it"s extracted from the file name. \
-                              ["coco", "coco_25", "wholebody", "mpii", "ap10k", "apt36k", "aic"]')
-    parser.add_argument('--det-class', type=str, required=False, default=None,
-                        help='["human", "cat", "dog", "horse", "sheep", \
-                               "cow", "elephant", "bear", "zebra", "giraffe", "animals"]')
-    parser.add_argument('--model-name', type=str, required=False, choices=['s', 'b', 'l', 'h'],
-                        help='[s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H]')
-    parser.add_argument('--yolo-size', type=int, required=False, default=320,
-                        help='YOLOv5 image size during inference')
-    parser.add_argument('--conf-threshold', type=float, required=False, default=0.5,
-                        help='Minimum confidence for keypoints to be drawn. [0, 1] range')
-    parser.add_argument('--rotate', type=int, choices=[0, 90, 180, 270],
-                        required=False, default=0,
-                        help='Rotate the image of [90, 180, 270] degress counterclockwise')
-    parser.add_argument('--yolo-step', type=int,
-                        required=False, default=1,
-                        help='The tracker can be used to predict the bboxes instead of yolo for performance, '
-                             'this flag specifies how often yolo is applied (e.g. 1 applies yolo every frame). '
-                             'This does not have any effect when is_video is False')
-    parser.add_argument('--single-pose', default=False, action='store_true',
-                        help='Do not use SORT tracker because single pose is expected in the video')
-    parser.add_argument('--show', default=False, action='store_true',
-                        help='preview result during inference')
-    parser.add_argument('--show-yolo', default=False, action='store_true',
-                        help='draw yolo results')
-    parser.add_argument('--show-raw-yolo', default=False, action='store_true',
-                        help='draw yolo result before that SORT is applied for tracking'
-                        ' (only valid during video inference)')
-    parser.add_argument('--save-img', default=False, action='store_true',
-                        help='save image results')
-    parser.add_argument('--save-json', default=False, action='store_true',
-                        help='save json results')
-    args = parser.parse_args()
-
-    use_mps = hasattr(torch.backends, 'mps') and torch.backends.mps.is_available()
-
-    # Load Yolo
-    yolo = args.yolo
-    if yolo is None:
-        yolo = 'yolov5s' + ('.onnx' if has_onnx and not use_mps else '.pt')
-    input_path = args.input
-    ext = input_path[input_path.rfind('.'):]
-
-    assert not (args.save_img or args.save_json) or args.output_path, \
-        'Specify an output path if using save-img or save-json flags'
-    output_path = args.output_path
-    if output_path:
-        if os.path.isdir(output_path):
-            save_name_img = os.path.basename(input_path).replace(ext, f"_result{ext}")
-            save_name_json = os.path.basename(input_path).replace(ext, "_result.json")
-            output_path_img = os.path.join(output_path, save_name_img)
-            output_path_json = os.path.join(output_path, save_name_json)
-        else:
-            output_path_img = output_path + f'{ext}'
-            output_path_json = output_path + '.json'
-
-    # Load the image / video reader
-    try:  # Check if is webcam
-        int(input_path)
-        is_video = True
-    except ValueError:
-        assert os.path.isfile(input_path), 'The input file does not exist'
-        is_video = input_path[input_path.rfind('.') + 1:].lower() in ['mp4', 'mov']
-
-    wait = 0
-    total_frames = 1
-    if is_video:
-        reader = VideoReader(input_path, args.rotate)
-        cap = cv2.VideoCapture(input_path)  # type: ignore
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        cap.release()
-        wait = 15
-        if args.save_img:
-            cap = cv2.VideoCapture(input_path)  # type: ignore
-            fps = cap.get(cv2.CAP_PROP_FPS)
-            ret, frame = cap.read()
-            cap.release()
-            assert ret
-            assert fps > 0
-            output_size = frame.shape[:2][::-1]
-            out_writer = cv2.VideoWriter(output_path_img,
-                                         cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'),
-                                         fps, output_size)  # type: ignore
-    else:
-        reader = [np.array(Image.open(input_path).rotate(args.rotate))]  # type: ignore
-
-    # Initialize model
-    model = VitInference(args.model, yolo, args.model_name,
-                         args.det_class, args.dataset,
-                         args.yolo_size, is_video=is_video,
-                         single_pose=args.single_pose,
-                         yolo_step=args.yolo_step)  # type: ignore
-    print(f">>> Model loaded: {args.model}")
-
-    print(f'>>> Running inference on {input_path}')
-    keypoints = []
-    fps = []
-    tot_time = 0.
-    for (ith, img) in tqdm.tqdm(enumerate(reader), total=total_frames):
-        t0 = time.time()
-
-        # Run inference
-        frame_keypoints = model.inference(img)
-        keypoints.append(frame_keypoints)
-
-        delta = time.time() - t0
-        tot_time += delta
-        fps.append(delta)
-
-        # Draw the poses and save the output img
-        if args.show or args.save_img:
-            # Draw result and transform to BGR
-            img = model.draw(args.show_yolo, args.show_raw_yolo, args.conf_threshold)[..., ::-1]
-
-            if args.save_img:
-                # TODO: If exists add (1), (2), ...
-                if is_video:
-                    out_writer.write(img)
-                else:
-                    print('>>> Saving output image')
-                    cv2.imwrite(output_path_img, img)
-
-            if args.show:
-                cv2.imshow('preview', img)
-                cv2.waitKey(wait)
-
-    if is_video:
-        tot_poses = sum(len(k) for k in keypoints)
-        print(f'>>> Mean inference FPS: {1 / np.mean(fps):.2f}')
-        print(f'>>> Total poses predicted: {tot_poses} mean per frame: '
-              f'{(tot_poses / (ith + 1)):.2f}')
-        print(f'>>> Mean FPS per pose: {(tot_poses / tot_time):.2f}')
-
-    if args.save_json:
-        print('>>> Saving output json')
-        with open(output_path_json, 'w') as f:
-            out = {'keypoints': keypoints,
-                   'skeleton': joints_dict()['coco']['keypoints']}
-            json.dump(out, f, cls=NumpyEncoder)
-
-    if is_video and args.save_img:
-        out_writer.release()
-    cv2.destroyAllWindows()

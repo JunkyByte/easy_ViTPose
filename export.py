@@ -23,6 +23,8 @@ args = parser.parse_args()
 dataset = args.dataset
 if dataset is None:
     dataset = infer_dataset_by_path(args.model_ckpt)
+assert dataset in ['mpii', 'coco', 'coco_25', 'wholebody', 'aic', 'ap10k', 'apt36k'], \
+    'The specified dataset is not valid'
 model_cfg = dyn_model_import(dataset, args.model_name)
 
 # Convert to onnx and save
