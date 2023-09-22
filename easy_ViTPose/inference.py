@@ -1,8 +1,6 @@
 import abc
-from importlib import import_module
 import json
 import os
-import re
 import time
 from typing import Optional
 import typing
@@ -22,6 +20,7 @@ from easy_ViTPose.vit_utils.inference import (
     draw_bboxes,
     pad_image,
 )
+from easy_ViTPose.vit_utils.util import dyn_model_import, infer_dataset_by_path
 from easy_ViTPose.vit_utils.top_down_eval import keypoints_from_heatmaps
 from easy_ViTPose.vit_utils.visualization import draw_points_and_skeleton, joints_dict
 
@@ -57,13 +56,6 @@ DETC_TO_YOLO_YOLOC = {
     'zebra': [22],
     'giraffe': [23],
     'animals': [15, 16, 17, 18, 19, 20, 21, 22, 23]
-}
-
-MODEL_ABBR_MAP = {
-    's': 'small',
-    'b': 'base',
-    'l': 'large',
-    'h': 'huge'
 }
 
 
@@ -141,10 +133,7 @@ class VitInference:
 
         # Extract dataset name
         if dataset is None:
-            p = r'-([a-zA-Z0-9]+)\.pth'
-            m = re.search(p, model)
-            assert m, 'Could not infer the dataset from model name, specify it'
-            dataset = m.group(1)
+            dataset = infer_dataset_by_path(model)
 
         assert dataset in ['mpii', 'coco', 'coco_25', 'wholebody', 'aic', 'ap10k', 'apt36k'], \
             'The specified dataset is not valid'
@@ -166,10 +155,7 @@ class VitInference:
                 'Specify the model_name if not using onnx / trt'
         else:
             # Dynamically import the model class
-            config_name = f'configs.ViTPose_{self.dataset}'
-            imp = import_module(config_name)
-            model_name = f'model_{MODEL_ABBR_MAP[model_name]}'
-            model_cfg = getattr(imp, model_name)
+            model_cfg = dyn_model_import(self.dataset, model_name)
 
         self.target_size = data_cfg['image_size']
         if use_onnx:

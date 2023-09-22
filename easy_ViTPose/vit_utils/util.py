@@ -1,20 +1,44 @@
-import os
-import warnings
-import random
-import numpy as np
-
 from collections import OrderedDict
-import os.path as osp
+from importlib import import_module
+import os
+import random
+import re
+import warnings
+from typing import Union, Any
 
+import numpy as np
 import torch
-import torch.nn as nn
-
 from torch import distributed as dist
+import torch.nn as nn
 from torch.nn.parallel import DataParallel, DistributedDataParallel
 
 from .dist_util import get_dist_info
 
 MODULE_WRAPPERS = [DataParallel, DistributedDataParallel]
+
+
+MODEL_ABBR_MAP = {
+    's': 'small',
+    'b': 'base',
+    'l': 'large',
+    'h': 'huge'
+}
+
+
+def infer_dataset_by_path(model_path: str) -> Union[str, Any]:
+    model = os.path.basename(model_path)
+    p = r'-([a-zA-Z0-9_]+)\.[pth, onnx, trt]'
+    m = re.search(p, model)
+    if not m:
+        raise ValueError('Could not infer the dataset from ckpt name, specify it')
+    return m.group(1)
+
+
+def dyn_model_import(dataset: str, model: str):
+    config_name = f'configs.ViTPose_{dataset}'
+    imp = import_module(config_name)
+    model = f'model_{MODEL_ABBR_MAP[model]}'
+    return getattr(imp, model)
 
 
 def init_random_seed(seed=None, device='cuda'):
@@ -76,6 +100,7 @@ def set_random_seed(seed: int,
     if deterministic:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
+
 
 def is_module_wrapper(module: nn.Module) -> bool:
     """ Check if module wrrapper exists recursively """
@@ -224,12 +249,14 @@ def resize(input,
                         f'out size {(output_h, output_w)} is `nx+1`')
     if isinstance(size, torch.Size):
         size = tuple(int(x) for x in size)
-        
+
+
 def constant_init(module: nn.Module, val: float, bias: float = 0) -> None:
     if hasattr(module, 'weight') and module.weight is not None:
         nn.init.constant_(module.weight, val)
     if hasattr(module, 'bias') and module.bias is not None:
         nn.init.constant_(module.bias, bias)
+
 
 def normal_init(module: nn.Module,
                 mean: float = 0,
