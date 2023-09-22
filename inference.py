@@ -16,16 +16,16 @@ from easy_ViTPose.vit_utils.visualization import joints_dict
 try:  # Add bools -> error stack
     import pycuda.driver as cuda  # noqa: F401
     import pycuda.autoinit  # noqa: F401
-    import tensorrt as trt  # noqa: F401
+    import nvidia_tensorrt as trt  # noqa: F401
     has_trt = True
 except ModuleNotFoundError:
-    pass
+    has_trt = False
 
 try:
     import onnxruntime  # noqa: F401
     has_onnx = True
 except ModuleNotFoundError:
-    pass
+    has_onnx = False
 
 
 if __name__ == "__main__":
@@ -75,11 +75,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     use_mps = hasattr(torch.backends, 'mps') and torch.backends.mps.is_available()
+    use_cuda = torch.cuda.is_available()
 
     # Load Yolo
     yolo = args.yolo
     if yolo is None:
-        yolo = 'easy_ViTPose/' + ('yolov8s' + ('.onnx' if has_onnx and not use_mps else '.pt'))
+        yolo = 'easy_ViTPose/' + ('yolov8s' + ('.onnx' if has_onnx and not (use_mps or use_cuda) else '.pt'))
     input_path = args.input
     ext = input_path[input_path.rfind('.'):]
 

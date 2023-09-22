@@ -6,6 +6,7 @@ import typing
 import cv2
 import numpy as np
 import torch
+
 from ultralytics import YOLO
 
 from .configs.ViTPose_common import data_cfg
@@ -30,6 +31,7 @@ except ModuleNotFoundError:
     pass
 
 __all__ = ['VitInference']
+np.bool = np.bool_
 MEAN = [0.485, 0.456, 0.406]
 STD = [0.229, 0.224, 0.225]
 
@@ -101,9 +103,8 @@ class VitInference:
             else:
                 device = 'cpu'
 
-        self.device = torch.device(device)
+        self.device = device
         self.yolo = YOLO(yolo, task='detect')
-        self.yolo.to(self.device)
         self.yolo_size = yolo_size
         self.yolo_step = yolo_step
         self.is_video = is_video
@@ -173,7 +174,7 @@ class VitInference:
                 self._vit_pose.load_state_dict(ckpt['state_dict'])
             else:
                 self._vit_pose.load_state_dict(ckpt)
-            self._vit_pose.to(device)
+            self._vit_pose.to(torch.device(device))
             inf_fn = self._inference_torch
 
         # Override _inference abstract with selected engine
@@ -242,7 +243,8 @@ class VitInference:
         results = None
         if (self.tracker is None or
            (self.frame_counter % self.yolo_step == 0 or self.frame_counter < 3)):
-            results = self.yolo(img, verbose=False, imgsz=self.yolo_size)[0]
+            results = self.yolo(img, verbose=False, imgsz=self.yolo_size,
+                                device=self.device if self.device != 'cuda' else 0)[0]
             res_pd = np.array([r[:5].tolist() for r in  # TODO: Confidence threshold
                                results.boxes.data.cpu().numpy() if r[4] > 0.35]).reshape((-1, 5))
         self.frame_counter += 1
@@ -324,7 +326,7 @@ class VitInference:
     def _inference_torch(self, img: np.ndarray) -> np.ndarray:
         # Prepare input data
         img_input, org_h, org_w = self.pre_img(img)
-        img_input = torch.from_numpy(img_input).to(self.device)
+        img_input = torch.from_numpy(img_input).to(torch.device(self.device))
 
         # Feed to model
         heatmaps = self._vit_pose(img_input).detach().cpu().numpy()
@@ -352,5 +354,5 @@ class VitInference:
                                              stream=self._stream)[0]
 
         # Reshape to output size
-        heatmaps = heatmaps.reshape(1, 25, img_input.shape[2] // 4, img_input.shape[3] // 4)
+        heatmaps = heatmaps.reshape(1, -1, img_input.shape[2] // 4, img_input.shape[3] // 4)
         return self.postprocess(heatmaps, org_w, org_h)

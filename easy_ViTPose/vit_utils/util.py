@@ -27,7 +27,7 @@ MODEL_ABBR_MAP = {
 
 def infer_dataset_by_path(model_path: str) -> Union[str, Any]:
     model = os.path.basename(model_path)
-    p = r'-([a-zA-Z0-9_]+)\.[pth, onnx, trt]'
+    p = r'-([a-zA-Z0-9_]+)\.[pth, onnx, engine]'
     m = re.search(p, model)
     if not m:
         raise ValueError('Could not infer the dataset from ckpt name, specify it')

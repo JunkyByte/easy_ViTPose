@@ -1,12 +1,10 @@
 # Utility functions for building/saving/loading TensorRT Engine
 import sys
 import os
-import cv2
 
 import tensorrt as trt
 import pycuda.driver as cuda
 import numpy as np
-from PIL import Image
 
 # ../../common.py
 sys.path.insert(1,
@@ -16,8 +14,6 @@ sys.path.insert(1,
         os.pardir
     )
 )
-# import utils.calibrator as calibrator
-import struct
 
 
 # This class contains converted (UFF) model metadata
