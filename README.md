@@ -60,7 +60,7 @@ pip install -r requirements.txt
 
 ### Download models
 - Download the models from [Huggingface](https://huggingface.co/JunkyByte/easy_ViTPose)
-We provide torch models for every dataset and architecture and onnx models prebuilt for coco_25 dataset.
+We provide torch models for every dataset and architecture and onnx models prebuilt for coco_25 dataset.  
 If you want to run onnx / tensorrt inference download the appropriate torch ckpt and use `export.py` to convert it.
 
 #### Export to onnx and tensorrt
