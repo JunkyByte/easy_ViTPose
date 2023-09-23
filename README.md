@@ -37,11 +37,11 @@ We run YOLOv8 for detection, it does not provide complete animal detection. You 
 if you do please open an issue, we might want to integrate other models for detection.
 
 ### Benchmark:
-Realtime >25 fps with modern nvidia gpus and apple silicon (using metal!).  
+Realtime >30 fps with modern nvidia gpus and apple silicon (using metal!).  
 Here some performance results (end to end inference pipeline)
-`GTX1080ti: yolo small tensorrt + vit-b tensorrt model: `
-`GTX1080ti: yolo small tensorrt + vit-s tensorrt model: `
-`AIR M2 2023: yolo nano torch + vit-s torch model (metal): >30fps (with a mean of 4 poses per frame)`
+`GTX1080ti: yolo small tensorrt + vit-b tensorrt model: 100fps`  
+`GTX1080ti: yolo small tensorrt + vit-s tensorrt model: 175fps`  
+`AIR M2 2023: yolo nano torch + vit-s torch model (metal): >30fps (with a mean of 4 poses per frame)`  
 
 ### Skeleton reference
 There are multiple skeletons for different dataset. Check the definition here [visualization.py](https://github.com/JunkyByte/easy_ViTPose/blob/main/src/vit_utils/visualization.py).
@@ -60,7 +60,7 @@ pip install -r requirements.txt
 
 ### Download models
 - Download the models from [Huggingface](https://huggingface.co/JunkyByte/easy_ViTPose)
-We provide torch models for every dataset and architecture and onnx models for coco_25 dataset.
+We provide torch models for every dataset and architecture and onnx models prebuilt for coco_25 dataset.
 If you want to run onnx / tensorrt inference download the appropriate torch ckpt and use `export.py` to convert it.
 
 #### Export to onnx and tensorrt
