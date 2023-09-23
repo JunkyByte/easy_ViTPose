@@ -32,6 +32,7 @@ https://github.com/JunkyByte/easy_ViTPose/assets/24314647/63af44b1-7245-4703-890
 - Human / Animal pose estimation
 - cpu / gpu / metal support
 - show and save images / videos and output to json
+
 We run YOLOv8 for detection, it does not provide complete animal detection. You can finetune a custom yolo model to detect the animal you are interested in,
 if you do please open an issue, we might want to integrate other models for detection.
 
