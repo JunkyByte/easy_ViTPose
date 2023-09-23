@@ -134,11 +134,12 @@ img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 # set is_video=True to enable tracking in video inference
 # be sure to use VitInference.reset() function to reset the tracker after each video
 # There are a few flags that allows to customize VitInference, be sure to check the class definition
-model_path = './ckpts/vitpose-25-s.onnx'
-yolo_path = './yolov5s.onnx'
+model_path = './ckpts/vitpose-s-coco_25.pth'
+yolo_path = './yolov5s.pth'
 
 # If you want to use MPS (on new macbooks) use the torch checkpoints for both ViTPose and Yolo
 # If device is None will try to use cuda -> mps -> cpu (otherwise specify 'cpu', 'mps' or 'cuda')
+# dataset and det_class parameters can be inferred from the ckpt name, but you can specify them.
 model = VitInference(model_path, yolo_path, model_name='s', yolo_size=320, is_video=False, device=None)
 
 # Infer keypoints, output is a dict where keys are person ids and values are keypoints (np.ndarray (25, 3): (y, x, score))
@@ -194,7 +195,6 @@ The output format of the json files:
 }
 ```
 
-
 ## Finetuning
 Finetuning is possible but not officially supported right now. If you would like to finetune and need help open an issue.  
 You can check `train.py`, `datasets/COCO.py` and `config.yaml` for details.
@@ -205,6 +205,9 @@ You can check `train.py`, `datasets/COCO.py` and `config.yaml` for details.
 - refactor finetuning
 - benchmark and check bottlenecks of inference pipeline
 - parallel batched inference
+- other minor fixes
+- yolo version for animal pose, check https://github.com/JunkyByte/easy_ViTPose/pull/18
+- solve cuda exceptions on script exit when using tensorrt (no idea how)
   
 Feel free to open issues, pull requests and contribute on these TODOs.
 
