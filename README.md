@@ -38,7 +38,7 @@ if you do please open an issue, we might want to integrate other models for dete
 
 ### Benchmark:
 Realtime >30 fps with modern nvidia gpus and apple silicon (using metal!).  
-Here some performance results (end to end inference pipeline)
+Here some performance results (end to end inference pipeline)  
 `GTX1080ti: yolo small tensorrt + vit-b tensorrt model: 100fps`  
 `GTX1080ti: yolo small tensorrt + vit-s tensorrt model: 175fps`  
 `AIR M2 2023: yolo nano torch + vit-s torch model (metal): >30fps (with a mean of 4 poses per frame)`  
@@ -48,8 +48,8 @@ There are multiple skeletons for different dataset. Check the definition here [v
 
 ## Installation and Usage
 > [!IMPORTANT]
-> I did not enforce the `requirements.txt` as they are not thoroughly tested, be sure to install the necessary packages by yourself.
-> To use MPS be sure to install a compatible torch version.
+> Install `torch>2.0 with cuda / mps support` by yourself.
+> also check `requirements_gpu.txt`.
 
 ```bash
 git clone git@github.com:JunkyByte/easy_ViTPose.git
@@ -60,7 +60,7 @@ pip install -r requirements.txt
 
 ### Download models
 - Download the models from [Huggingface](https://huggingface.co/JunkyByte/easy_ViTPose)
-We provide torch models for every dataset and architecture and onnx models prebuilt for coco_25 dataset.
+We provide torch models for every dataset and architecture and onnx models prebuilt for coco_25 dataset.  
 If you want to run onnx / tensorrt inference download the appropriate torch ckpt and use `export.py` to convert it.
 
 #### Export to onnx and tensorrt
@@ -134,11 +134,12 @@ img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 # set is_video=True to enable tracking in video inference
 # be sure to use VitInference.reset() function to reset the tracker after each video
 # There are a few flags that allows to customize VitInference, be sure to check the class definition
-model_path = './ckpts/vitpose-25-s.onnx'
-yolo_path = './yolov5s.onnx'
+model_path = './ckpts/vitpose-s-coco_25.pth'
+yolo_path = './yolov5s.pth'
 
 # If you want to use MPS (on new macbooks) use the torch checkpoints for both ViTPose and Yolo
 # If device is None will try to use cuda -> mps -> cpu (otherwise specify 'cpu', 'mps' or 'cuda')
+# dataset and det_class parameters can be inferred from the ckpt name, but you can specify them.
 model = VitInference(model_path, yolo_path, model_name='s', yolo_size=320, is_video=False, device=None)
 
 # Infer keypoints, output is a dict where keys are person ids and values are keypoints (np.ndarray (25, 3): (y, x, score))
@@ -194,7 +195,6 @@ The output format of the json files:
 }
 ```
 
-
 ## Finetuning
 Finetuning is possible but not officially supported right now. If you would like to finetune and need help open an issue.  
 You can check `train.py`, `datasets/COCO.py` and `config.yaml` for details.
@@ -205,6 +205,10 @@ You can check `train.py`, `datasets/COCO.py` and `config.yaml` for details.
 - refactor finetuning
 - benchmark and check bottlenecks of inference pipeline
 - parallel batched inference
+- other minor fixes
+- yolo version for animal pose, check https://github.com/JunkyByte/easy_ViTPose/pull/18
+- solve cuda exceptions on script exit when using tensorrt (no idea how)
+- add infos about inferred informations during inference, better output of inference status (device etc)
   
 Feel free to open issues, pull requests and contribute on these TODOs.
 
