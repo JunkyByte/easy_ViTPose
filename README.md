@@ -3,53 +3,49 @@
 <img src="https://user-images.githubusercontent.com/24314647/236082274-b25a70c8-9267-4375-97b0-eddf60a7dfc6.png" width=375> easy_ViTPose
 </p>
 
-## Accurate 2d human pose estimation, finetuned on 25 keypoints COCO skeleton + feet  
+## Accurate 2d human and animal pose estimation
 
 <a target="_blank" href="https://colab.research.google.com/github/JunkyByte/easy_ViTPose/blob/main/colab_demo.ipynb">
   <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab"/>
 </a>
 
 ### Easy to use SOTA `ViTPose` [Y. Xu et al., 2022] models for fast inference.  
+We provide all the VitPose original models, converted for inference, with single dataset format output.
 
 ## Results
+![resimg](https://github.com/JunkyByte/easy_ViTPose/assets/24314647/51c0777f-b268-448a-af02-9a3537f288d8)
 
-![resimg](https://user-images.githubusercontent.com/24314647/236281199-98e45ab5-2a18-45b7-ba5c-36bdec4450f4.png)
-(Model - ViTPose-b)
+https://github.com/JunkyByte/easy_ViTPose/assets/24314647/e9a82c17-6e99-4111-8cc8-5257910cb87e
 
-https://github.com/JunkyByte/easy_ViTPose/assets/24314647/a43ca37b-3e64-4c19-bf07-813fdf45f112
+https://github.com/JunkyByte/easy_ViTPose/assets/24314647/63af44b1-7245-4703-8906-3f034a43f9e3
 
-(Credits: https://www.youtube.com/watch?v=p-rSdt0aFuw&pp=ygUhZGFuY2UgZXZvbHV0aW9uIGZyb20gMTk1MCB0byAyMDE5)  
-(s - small, b - base, l - large, h - huge)
+(Credits dance: https://www.youtube.com/watch?v=p-rSdt0aFuw )  
+(Credits zebras: https://www.youtube.com/watch?v=y-vELRYS8Yk )
 
 ## Features
-### NEW: You can now use MPS on Apple silicon computers!
 - Image / Video / Webcam support
-- Video support using SORT algorithm to track bboxes between frames and mantain multi pose identification
-- Torch / ONNX / Tensorrt models
-- 4 ViTPose architectures with different sizes
-- cpu / gpu / mps (apple silicon gpu)
-- save output images / videos and json
+- Video support using SORT algorithm to track bboxes between frames
+- Torch / ONNX / Tensorrt inference
+- Runs the original VitPose checkpoints from [ViTAE-Transformer/ViTPose](https://github.com/ViTAE-Transformer/ViTPose)
+- 4 ViTPose architectures with different sizes and performances (s: small, b: base, l: large, h: huge)
+- Multi skeleton and dataset: (AIC / MPII / COCO / COCO + FEET / COCO WHOLEBODY / APT36k / AP10k)
+- Human / Animal pose estimation
+- cpu / gpu / metal support
+- show and save images / videos and output to json
+We run YOLOv8 for detection, it does not provide complete animal detection. You can finetune a custom yolo model to detect the animal you are interested in,
+if you do please open an issue, we might want to integrate other models for detection.
 
 ### Benchmark:
-Run on `GTX1080ti`, consider that tensorrt > onnx > torch.  
-These benchmarks are relative to `ViTPose` models, they do not consider Yolo detection that is done before `ViTPose` inference.  
-Tensorrt:  
-- ViTPose-s: ~250 fps
-- ViTPose-b: ~125 fps
-- ViTPose-l: ~45 fps
-- ViTPose-h: ~24.5 fps
-(these are relative to single person pose estimation)
+Realtime >25 fps with modern nvidia gpus and apple silicon (using metal!).  
+Here some performance results (end to end inference pipeline)
+`GTX1080ti: yolo small tensorrt + vit-b tensorrt model: `
+`GTX1080ti: yolo small tensorrt + vit-s tensorrt model: `
+`AIR M2 2023: yolo nano torch + vit-s torch model (metal): >30fps (with a mean of 4 poses per frame)`
 
 ### Skeleton reference
-The skeleton keypoint ordering can be found in [visualization.py](https://github.com/JunkyByte/easy_ViTPose/blob/main/src/vit_utils/visualization.py#L14) or below.  
-<details>
-  <summary>Skeleton reference image</summary>
-  
-  ![skeleton](https://github.com/JunkyByte/easy_ViTPose/assets/24314647/cf0eefa0-3768-4acf-9638-8a1673e32830)
-</details>
+There are multiple skeletons for different dataset. Check the definition here [visualization.py](https://github.com/JunkyByte/easy_ViTPose/blob/main/src/vit_utils/visualization.py).
 
 ## Installation and Usage
-#### NEW: easy_ViTPose is now a package for easier custom inference  
 > [!IMPORTANT]
 > I did not enforce the `requirements.txt` as they are not thoroughly tested, be sure to install the necessary packages by yourself.
 > To use MPS be sure to install a compatible torch version.
@@ -62,25 +58,14 @@ pip install -r requirements.txt
 ```
 
 ### Download models
-- Download the models from [Huggingface](https://huggingface.co/JunkyByte/easy_ViTPose) or with `downloader.py`
-```bash
-$ python downloader.py --help
-usage: downloader.py [-h] --backend {torch,onnx,tensorrt} --model-name {s,b,l,h} [--output OUTPUT]
+- Download the models from [Huggingface](https://huggingface.co/JunkyByte/easy_ViTPose)
+We provide torch models for every dataset and architecture and onnx models for coco_25 dataset.
+If you want to run onnx / tensorrt inference download the appropriate torch ckpt and use `export.py` to convert it.
 
-optional arguments:
-  -h, --help            show this help message and exit
-  --backend {torch,onnx,tensorrt}
-                        Model backend [torch, onnx, tensorrt]
-  --model-name {s,b,l,h}
-                        [s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H, YOLO-S: YOLO-S, YOLO-N: YOLO-N]
-  --output OUTPUT       Dir path for checkpoint output
-```
-
-> [!NOTE]
-> If you encounter any problem with ONNX and TRT checkpoints, generate them again by yourself using `export.py`
+#### Export to onnx and tensorrt
 ```bash
 $ python export.py --help
-usage: export.py [-h] --model-ckpt MODEL_CKPT --model-name {s,b,l,h} [--output OUTPUT]
+usage: export.py [-h] --model-ckpt MODEL_CKPT --model-name {s,b,l,h} [--output OUTPUT] [--dataset DATASET]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -89,17 +74,19 @@ optional arguments:
   --model-name {s,b,l,h}
                         [s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H]
   --output OUTPUT       File (without extension) or dir path for checkpoint output
+  --dataset DATASET     Name of the dataset. If None it"s extracted from the file name. ["coco", "coco_25",
+                        "wholebody", "mpii", "ap10k", "apt36k", "aic"]
 ```
 
 ### Run inference
 To run inference from command line you can use the `inference.py` script as follows:  
-(be sure to `cd easy_ViTPose/easy_ViTPose/`)  
+(be sure to `cd easy_ViTPose/`)  
 ```bash
 $ python inference.py --help
-usage: inference.py [-h] [--input INPUT] [--output-path OUTPUT_PATH] --model MODEL [--yolo YOLO]
-                    [--model-name {s,b,l,h}] [--yolo-size YOLO_SIZE] [--conf-threshold CONF_THRESHOLD]
-                    [--rotate {0,90,180,270}] [--yolo-step YOLO_STEP] [--single-pose] [--show] [--show-yolo]
-                    [--show-raw-yolo] [--save-img] [--save-json]
+usage: inference.py [-h] [--input INPUT] [--output-path OUTPUT_PATH] --model MODEL [--yolo YOLO] [--dataset DATASET]
+                    [--det-class DET_CLASS] [--model-name {s,b,l,h}] [--yolo-size YOLO_SIZE]
+                    [--conf-threshold CONF_THRESHOLD] [--rotate {0,90,180,270}] [--yolo-step YOLO_STEP]
+                    [--single-pose] [--show] [--show-yolo] [--show-raw-yolo] [--save-img] [--save-json]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -109,10 +96,15 @@ optional arguments:
                         +_result{extension}".
   --model MODEL         checkpoint path of the model
   --yolo YOLO           checkpoint path of the yolo model
+  --dataset DATASET     Name of the dataset. If None it"s extracted from the file name. ["coco", "coco_25",
+                        "wholebody", "mpii", "ap10k", "apt36k", "aic"]
+  --det-class DET_CLASS
+                        ["human", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe",
+                        "animals"]
   --model-name {s,b,l,h}
                         [s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H]
   --yolo-size YOLO_SIZE
-                        YOLOv5 image size during inference
+                        YOLOv8 image size during inference
   --conf-threshold CONF_THRESHOLD
                         Minimum confidence for keypoints to be drawn. [0, 1] range
   --rotate {0,90,180,270}
@@ -203,25 +195,18 @@ The output format of the json files:
 
 
 ## Finetuning
-Finetuning is done with `train.py` on COCO + feet.  
-Check `datasets/COCO.py`, `config.yaml` and `train.py` for details.
+Finetuning is possible but not officially supported right now. If you would like to finetune and need help open an issue.  
+You can check `train.py`, `datasets/COCO.py` and `config.yaml` for details.
 
 ---
 
 ## TODO:
-- Tensorrt version of yolo
-- ~~Add possibility to not use tracker if single pose is expected in a video (benchmark the tracker)~~
-- ~~package setup~~
-- ~~Download models with script~~
+- refactor finetuning
 - benchmark and check bottlenecks of inference pipeline
 - parallel batched inference
-- ~~tuning the parameters of the SORT~~ (to be tested)
-- ~~allow for skip frames of yolo detection (to have faster inference) leveraging the SORT for tracking during those frames.~~
-- ~~confidence masking on skeleton drawing (add arg)~~
   
 Feel free to open issues, pull requests and contribute on these TODOs.
 
 ## Reference
-This code started as a fork of [jaehyunnn/ViTPose_pytorch](https://github.com/jaehyunnn/ViTPose_pytorch).  
 Thanks to the VitPose authors and their official implementation [ViTAE-Transformer/ViTPose](https://github.com/ViTAE-Transformer/ViTPose).  
 The SORT code is taken from [abewley/sort](https://github.com/abewley/sort)
