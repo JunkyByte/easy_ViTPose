@@ -3,6 +3,7 @@ import torch
 import argparse
 
 from easy_ViTPose.vit_models.model import ViTPose
+from easy_ViTPose.vit_utils.util import infer_dataset_by_path, dyn_model_import
 
 
 parser = argparse.ArgumentParser()
@@ -12,17 +13,19 @@ parser.add_argument('--model-name', type=str, required=True, choices=['s', 'b', 
                     help='[s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H]')
 parser.add_argument('--output', type=str, default='ckpts/',
                     help='File (without extension) or dir path for checkpoint output')
+parser.add_argument('--dataset', type=str, required=False, default=None,
+                    help='Name of the dataset. If None it"s extracted from the file name. \
+                          ["coco", "coco_25", "wholebody", "mpii", "ap10k", "apt36k", "aic"]')
 args = parser.parse_args()
 
-# Load model config
-if args.model_name == 's':
-    from easy_ViTPose.configs.ViTPose_small_coco_256x192 import model as model_cfg
-elif args.model_name == 'b':
-    from easy_ViTPose.configs.ViTPose_base_coco_256x192 import model as model_cfg
-elif args.model_name == 'l':
-    from easy_ViTPose.configs.ViTPose_large_coco_256x192 import model as model_cfg
-elif args.model_name == 'h':
-    from easy_ViTPose.configs.ViTPose_huge_coco_256x192 import model as model_cfg
+
+# Get dataset and model_cfg
+dataset = args.dataset
+if dataset is None:
+    dataset = infer_dataset_by_path(args.model_ckpt)
+assert dataset in ['mpii', 'coco', 'coco_25', 'wholebody', 'aic', 'ap10k', 'apt36k'], \
+    'The specified dataset is not valid'
+model_cfg = dyn_model_import(dataset, args.model_name)
 
 # Convert to onnx and save
 print('>>> Converting to ONNX')
@@ -30,7 +33,11 @@ CKPT_PATH = args.model_ckpt
 C, H, W = (3, 256, 192)
 
 model = ViTPose(model_cfg)
+
 ckpt = torch.load(CKPT_PATH, map_location='cpu')
+if 'state_dict' in ckpt:
+    ckpt = ckpt['state_dict']
+
 model.load_state_dict(ckpt)
 model.eval()
 
