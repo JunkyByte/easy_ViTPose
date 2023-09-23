@@ -135,7 +135,7 @@ class VitInference:
         # if we picked the dataset switch to correct yolo classes if not set
         if det_class is None:
             det_class = 'animals' if dataset in ['ap10k', 'apt36k'] else 'human'
-        self.yolo.classes = DETC_TO_YOLO_YOLOC[det_class]
+        self.yolo_classes = DETC_TO_YOLO_YOLOC[det_class]
 
         assert model_name in [None, 's', 'b', 'l', 'h'], \
             f'The model name {model_name} is not valid'
@@ -244,7 +244,8 @@ class VitInference:
         if (self.tracker is None or
            (self.frame_counter % self.yolo_step == 0 or self.frame_counter < 3)):
             results = self.yolo(img, verbose=False, imgsz=self.yolo_size,
-                                device=self.device if self.device != 'cuda' else 0)[0]
+                                device=self.device if self.device != 'cuda' else 0,
+                                classes=self.yolo_classes)[0]
             res_pd = np.array([r[:5].tolist() for r in  # TODO: Confidence threshold
                                results.boxes.data.cpu().numpy() if r[4] > 0.35]).reshape((-1, 5))
         self.frame_counter += 1
