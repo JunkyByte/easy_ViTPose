@@ -48,8 +48,8 @@ There are multiple skeletons for different dataset. Check the definition here [v
 
 ## Installation and Usage
 > [!IMPORTANT]
-> I did not enforce the `requirements.txt` as they are not thoroughly tested, be sure to install the necessary packages by yourself.
-> To use MPS be sure to install a compatible torch version.
+> Install `torch>2.0 with cuda / mps support` by yourself.
+> also check `requirements_gpu.txt`.
 
 ```bash
 git clone git@github.com:JunkyByte/easy_ViTPose.git
