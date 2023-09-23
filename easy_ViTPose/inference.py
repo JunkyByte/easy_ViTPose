@@ -61,7 +61,7 @@ class VitInference:
         model_name (str, optional): Name of the ViT model architecture to use.
                                     Valid values are 's', 'b', 'l', 'h'.
                                     Defaults to None, is necessary when using .pth checkpoints.
-        det_class (str, optional): the detection class. defaults to None which means also human.
+        det_class (str, optional): the detection class. if None it is inferred by the dataset.
                                    valid values are 'human', 'cat', 'dog', 'horse', 'sheep',
                                                     'cow', 'elephant', 'bear', 'zebra', 'giraffe',
                                                     'animals' (which is all previous but human)
@@ -84,7 +84,7 @@ class VitInference:
     def __init__(self, model: str,
                  yolo: str,
                  model_name: Optional[str] = None,
-                 det_class: str = 'human',
+                 det_class: Optional[str] = None,
                  dataset: Optional[str] = None,
                  yolo_size: Optional[int] = 320,
                  device: Optional[str] = None,
