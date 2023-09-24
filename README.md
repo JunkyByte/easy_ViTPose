@@ -84,7 +84,6 @@ optional arguments:
 
 ### Run inference
 To run inference from command line you can use the `inference.py` script as follows:  
-(be sure to `cd easy_ViTPose/`)  
 ```bash
 $ python inference.py --help
 usage: inference.py [-h] [--input INPUT] [--output-path OUTPUT_PATH] --model MODEL [--yolo YOLO] [--dataset DATASET]
