@@ -39,9 +39,11 @@ if you do please open an issue, we might want to integrate other models for dete
 ### Benchmark:
 Realtime >30 fps with modern nvidia gpus and apple silicon (using metal!).  
 Here some performance results (end to end inference pipeline)  
-`GTX1080ti: yolo small tensorrt + vit-b tensorrt model: 100fps`  
-`GTX1080ti: yolo small tensorrt + vit-s tensorrt model: 175fps`  
-`AIR M2 2023: yolo nano torch + vit-s torch model (metal): >30fps (with a mean of 4 poses per frame)`  
+```
+GTX1080ti + yolo small tensorrt + vit-b tensorrt model: 100fps
+GTX1080ti + yolo small tensorrt + vit-s tensorrt model: 175fps
+AIR M2 2023 + yolo nano torch + vit-s torch model (metal): >30fps (with a mean of 4 poses per frame)
+```
 
 ### Skeleton reference
 There are multiple skeletons for different dataset. Check the definition here [visualization.py](https://github.com/JunkyByte/easy_ViTPose/blob/main/easy_ViTPose/vit_utils/visualization.py).
