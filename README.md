@@ -211,7 +211,8 @@ You can check `train.py`, `datasets/COCO.py` and `config.yaml` for details.
 - yolo version for animal pose, check https://github.com/JunkyByte/easy_ViTPose/pull/18
 - solve cuda exceptions on script exit when using tensorrt (no idea how)
 - add infos about inferred informations during inference, better output of inference status (device etc)
-  
+- check if is possible to make colab work without runtime restart
+
 Feel free to open issues, pull requests and contribute on these TODOs.
 
 ## Reference
