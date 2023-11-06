@@ -1,3 +1,4 @@
+nvidia-pyindex
 onnxruntime-gpu>=1.13.0
+tensorrt==8.5.1.7
 pycuda>=2022.2.2
-nvidia-tensorrt==8.4.3.1

@@ -13,14 +13,6 @@ from easy_ViTPose.vit_utils.inference import NumpyEncoder, VideoReader
 from easy_ViTPose.inference import VitInference
 from easy_ViTPose.vit_utils.visualization import joints_dict
 
-try:  # Add bools -> error stack
-    import pycuda.driver as cuda  # noqa: F401
-    import pycuda.autoinit  # noqa: F401
-    import nvidia_tensorrt as trt  # noqa: F401
-    has_trt = True
-except ModuleNotFoundError:
-    has_trt = False
-
 try:
     import onnxruntime  # noqa: F401
     has_onnx = True

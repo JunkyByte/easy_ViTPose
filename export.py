@@ -50,9 +50,10 @@ inputs = torch.randn(1, C, H, W).to(device)
 dynamic_axes = {'input_0': {0: 'batch_size'},
                 'output_0': {0: 'batch_size'}}
 
-out_name = os.path.basename(args.model_ckpt).replace('.pth', '')
-if not os.path.isdir(args.output): out_name = os.path.basename(args.output)
-output_onnx = os.path.join(os.path.dirname(args.output), out_name + '.onnx')
+out_name = os.path.basename(args.model_ckpt).replace('.pth', '.onnx')
+if not os.path.isdir(args.output):
+    out_name = os.path.basename(args.output)
+output_onnx = os.path.join(os.path.dirname(args.output), out_name)
 
 torch_out = torch.onnx.export(model, inputs, output_onnx, export_params=True, verbose=False,
                               input_names=input_names, output_names=output_names,

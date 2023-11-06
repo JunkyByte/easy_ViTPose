@@ -122,6 +122,7 @@ class VitInference:
         use_onnx = model.endswith('.onnx')
         use_trt = model.endswith('.engine')
 
+
         # Extract dataset name
         if dataset is None:
             dataset = infer_dataset_by_path(model)
