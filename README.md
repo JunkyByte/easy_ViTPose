@@ -13,6 +13,8 @@
 We provide all the VitPose original models, converted for inference, with single dataset format output.
 
 In addition to that we also provide a Coco-25 model, trained on the original coco dataset + feet https://cmu-perceptual-computing-lab.github.io/foot_keypoint_dataset/
+Finetuned is not currently supported, you can check de43d54cad87404cf0ad4a7b5da6bacf4240248b and previous commits for a working state of `train.py`
+
 ## Results
 ![resimg](https://github.com/JunkyByte/easy_ViTPose/assets/24314647/51c0777f-b268-448a-af02-9a3537f288d8)
 
