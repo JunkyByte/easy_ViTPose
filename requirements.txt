@@ -25,7 +25,7 @@ onnxruntime==1.16.0
 opencv-python==4.8.0.76
 packaging==23.1
 pandas==2.1.1
-Pillow==10.0.1
+Pillow==10.2.0
 protobuf==4.24.3
 psutil==5.9.5
 py-cpuinfo==9.0.0
