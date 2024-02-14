@@ -12,6 +12,9 @@
 ### Easy to use SOTA `ViTPose` [Y. Xu et al., 2022] models for fast inference.  
 We provide all the VitPose original models, converted for inference, with single dataset format output.
 
+In addition to that we also provide a Coco-25 model, trained on the original coco dataset + feet https://cmu-perceptual-computing-lab.github.io/foot_keypoint_dataset/
+Finetuning is not currently supported, you can check de43d54cad87404cf0ad4a7b5da6bacf4240248b and previous commits for a working state of `train.py`
+
 ## Results
 ![resimg](https://github.com/JunkyByte/easy_ViTPose/assets/24314647/51c0777f-b268-448a-af02-9a3537f288d8)
 
@@ -57,7 +60,7 @@ pip install -r requirements.txt
 ### Download models
 - Download the models from [Huggingface](https://huggingface.co/JunkyByte/easy_ViTPose)
 We provide torch models for every dataset and architecture.  
-If you want to run onnx / tensorrt inference download the appropriate torch ckpt and use `export.py` to convert it.
+If you want to run onnx / tensorrt inference download the appropriate torch ckpt and use `export.py` to convert it.  
 You can use `ultralytics` `yolo export` command to export yolo to onnx and tensorrt as well.
 
 #### Export to onnx and tensorrt
@@ -78,7 +81,6 @@ optional arguments:
 
 ### Run inference
 To run inference from command line you can use the `inference.py` script as follows:  
-(be sure to `cd easy_ViTPose/`)  
 ```bash
 $ python inference.py --help
 usage: inference.py [-h] [--input INPUT] [--output-path OUTPUT_PATH] --model MODEL [--yolo YOLO] [--dataset DATASET]
@@ -206,8 +208,8 @@ You can check `train.py`, `datasets/COCO.py` and `config.yaml` for details.
 - yolo version for animal pose, check https://github.com/JunkyByte/easy_ViTPose/pull/18
 - solve cuda exceptions on script exit when using tensorrt (no idea how)
 - add infos about inferred informations during inference, better output of inference status (device etc)
-- add check on has trt and has onnx when loading checkpoints (assert module is loaded)
-  
+- check if is possible to make colab work without runtime restart
+
 Feel free to open issues, pull requests and contribute on these TODOs.
 
 ## Reference

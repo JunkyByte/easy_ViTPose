@@ -7,7 +7,7 @@ ffmpeg==1.4
 filelock==3.12.4
 filterpy==1.4.5
 flatbuffers==23.5.26
-fonttools==4.42.1
+fonttools==4.43.0
 humanfriendly==10.0
 idna==3.4
 imageio==2.31.3
