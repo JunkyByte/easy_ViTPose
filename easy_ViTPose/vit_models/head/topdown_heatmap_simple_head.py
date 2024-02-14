@@ -267,14 +267,8 @@ class TopdownHeatmapSimpleHead(TopdownHeatmapBaseHead):
             Tensor: The transformed inputs
         """
         if not isinstance(inputs, list):
-            if not isinstance(inputs, list):
-                if self.upsample > 0:
-                    inputs = resize(
-                        input=F.relu(inputs),
-                        scale_factor=self.upsample,
-                        mode='bilinear',
-                        align_corners=self.align_corners
-                        )
+            if self.upsample > 0:
+                raise NotImplementedError
             return inputs
 
         if self.input_transform == 'resize_concat':

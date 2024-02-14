@@ -221,12 +221,10 @@ class PatchEmbed(nn.Module):
 
         self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=(patch_size[0] // ratio), padding=4 + 2 * (ratio//2-1))
 
-    def forward(self, x, **kwargs):
-        B, C, H, W = x.shape
+    def forward(self, x):
         x = self.proj(x)
-        Hp, Wp = x.shape[2], x.shape[3]
-
-        x = x.flatten(2).transpose(1, 2)
+        B, C, Hp, Wp = x.shape
+        x = x.view(B, C, Hp * Wp).transpose(1, 2)
         return x, (Hp, Wp)
 
 
@@ -374,7 +372,7 @@ class ViT(nn.Module):
     def no_weight_decay(self):
         return {'pos_embed', 'cls_token'}
 
-    def forward_features(self, x):
+    def forward(self, x):
         B, C, H, W = x.shape
         x, (Hp, Wp) = self.patch_embed(x)
 
@@ -384,19 +382,10 @@ class ViT(nn.Module):
             x = x + self.pos_embed[:, 1:] + self.pos_embed[:, :1]
 
         for blk in self.blocks:
-            if self.use_checkpoint:
-                x = checkpoint.checkpoint(blk, x)
-            else:
-                x = blk(x)
+            x = blk(x)
 
         x = self.last_norm(x)
-
-        xp = x.permute(0, 2, 1).reshape(B, -1, Hp, Wp).contiguous()
-
-        return xp
-
-    def forward(self, x):
-        x = self.forward_features(x)
+        x = x.permute(0, 2, 1).view(B, -1, Hp, Wp).contiguous()
         return x
 
     def train(self, mode=True):

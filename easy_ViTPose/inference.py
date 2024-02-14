@@ -17,11 +17,8 @@ from .vit_utils.top_down_eval import keypoints_from_heatmaps
 from .vit_utils.util import dyn_model_import, infer_dataset_by_path
 from .vit_utils.visualization import draw_points_and_skeleton, joints_dict
 
-try:  # Add bools -> error stack
-    import pycuda.driver as cuda  # noqa: F401
-    import pycuda.autoinit  # noqa: F401
-    import tensorrt as trt
-    import utils_engine as engine_utils
+try:
+    import torch_tensorrt
 except ModuleNotFoundError:
     pass
 
@@ -155,27 +152,20 @@ class VitInference:
                                                              providers=['CUDAExecutionProvider',
                                                                         'CPUExecutionProvider'])
             inf_fn = self._inference_onnx
-        elif use_trt:
-            logger = trt.Logger(trt.Logger.ERROR)
-            trt_runtime = trt.Runtime(logger)
-            trt_engine = engine_utils.load_engine(trt_runtime, model)
-
-            # This allocates memory for network inputs/outputs on both CPU and GPU
-            self._inputs, self._outputs, self._bindings, self._stream = \
-                engine_utils.allocate_buffers(trt_engine)
-            # Execution context is needed for inference
-            self._context = trt_engine.create_execution_context()
-            inf_fn = self._inference_trt
         else:
             self._vit_pose = ViTPose(model_cfg)
             self._vit_pose.eval()
 
-            ckpt = torch.load(model, map_location='cpu')
-            if 'state_dict' in ckpt:
-                self._vit_pose.load_state_dict(ckpt['state_dict'])
+            if use_trt:
+                self._vit_pose = torch.jit.load(model)
             else:
-                self._vit_pose.load_state_dict(ckpt)
-            self._vit_pose.to(torch.device(device))
+                ckpt = torch.load(model, map_location='cpu')
+                if 'state_dict' in ckpt:
+                    self._vit_pose.load_state_dict(ckpt['state_dict'])
+                else:
+                    self._vit_pose.load_state_dict(ckpt)
+                self._vit_pose.to(torch.device(device))
+
             inf_fn = self._inference_torch
 
         # Override _inference abstract with selected engine
@@ -341,20 +331,4 @@ class VitInference:
         # Feed to model
         ort_inputs = {self._ort_session.get_inputs()[0].name: img_input}
         heatmaps = self._ort_session.run(None, ort_inputs)[0]
-        return self.postprocess(heatmaps, org_w, org_h)
-
-    def _inference_trt(self, img: np.ndarray) -> np.ndarray:
-        # Prepare input data
-        img_input, org_h, org_w = self.pre_img(img)
-
-        # Copy the data to appropriate memory
-        np.copyto(self._inputs[0].host, img_input.ravel())
-        heatmaps = engine_utils.do_inference(context=self._context,
-                                             bindings=self._bindings,
-                                             inputs=self._inputs,
-                                             outputs=self._outputs,
-                                             stream=self._stream)[0]
-
-        # Reshape to output size
-        heatmaps = heatmaps.reshape(1, -1, img_input.shape[2] // 4, img_input.shape[3] // 4)
         return self.postprocess(heatmaps, org_w, org_h)

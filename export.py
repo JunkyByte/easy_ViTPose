@@ -57,13 +57,13 @@ output_onnx = os.path.join(os.path.dirname(args.output), out_name)
 
 torch_out = torch.onnx.export(model, inputs, output_onnx, export_params=True, verbose=False,
                               input_names=input_names, output_names=output_names,
-                              opset_version=11, dynamic_axes=dynamic_axes)
+                              dynamic_axes=dynamic_axes)
 print(f">>> Saved at: {os.path.abspath(output_onnx)}")
 print('=' * 80)
 print()
 
 try:
-    import tensorrt as trt
+    import torch_tensorrt
 except ModuleNotFoundError:
     print('>>> TRT module not found, skipping')
     import sys
@@ -71,43 +71,19 @@ except ModuleNotFoundError:
 
 # From yolo convert script, onnx -> trt
 print('>>> Converting to TRT')
-def export_engine(onnx, im, file, half, dynamic, workspace=4, verbose=False, prefix='Tensorrt'):
-    logger = trt.Logger(trt.Logger.INFO)
-    if verbose:
-        logger.min_severity = trt.Logger.Severity.VERBOSE
+trt_ts_module = torch_tensorrt.compile(model,
+    # If the inputs to the module are plain Tensors, specify them via the `inputs` argument:
+    inputs = [
+        torch_tensorrt.Input( # Specify input object with shape and dtype
+            shape=[1, C, H, W],
+            dtype=torch.float32
+        )
+    ],
 
-    builder = trt.Builder(logger)
-    config = builder.create_builder_config()
-    config.max_workspace_size = workspace * 1 << 30
-
-    flag = (1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
-    network = builder.create_network(flag)
-    parser = trt.OnnxParser(network, logger)
-    if not parser.parse_from_file(str(onnx)):
-        raise RuntimeError(f'failed to load ONNX file: {onnx}')
-
-    inputs = [network.get_input(i) for i in range(network.num_inputs)]
-    outputs = [network.get_output(i) for i in range(network.num_outputs)]
-    for inp in inputs:
-        print(f'{prefix} input "{inp.name}" with shape{inp.shape} {inp.dtype}')
-    for out in outputs:
-        print(f'{prefix} output "{out.name}" with shape{out.shape} {out.dtype}')
-
-    if dynamic:
-        if im.shape[0] <= 1:
-            print(f'{prefix} WARNING ⚠️ --dynamic model requires maximum --batch-size argument')
-        profile = builder.create_optimization_profile()
-        for inp in inputs:
-            profile.set_shape(inp.name, (1, *im.shape[1:]), (max(1, im.shape[0] // 2), *im.shape[1:]), im.shape)
-        config.add_optimization_profile(profile)
-
-    print(f'{prefix} building FP{16 if builder.platform_has_fast_fp16 and half else 32} engine')
-    if builder.platform_has_fast_fp16 and half:
-        config.set_flag(trt.BuilderFlag.FP16)
-    with builder.build_engine(network, config) as engine, open(file, 'wb') as t:
-        t.write(engine.serialize())
-    return True
-
+    # TODO: ADD Datatype for inference. Allowed options torch.(float|half|int8|int32|bool)
+    enabled_precisions = {torch.float32}, # half Run with FP16
+    workspace_size = 1 << 28
+)
 
 # Export
 output_trt = output_onnx.replace('.onnx', '.engine')
@@ -116,7 +92,6 @@ input_names = ["input_0"]
 output_names = ["output_0"]
 
 device = next(model.parameters()).device
-inputs = torch.randn(1, C, H, W).to(device)
+torch.jit.save(trt_ts_module, output_trt) # save the TRT embedded Torchscript
 
-export_engine(output_onnx, inputs, output_trt, False, True, verbose=False)
 print(f">>> Saved at: {os.path.abspath(output_trt)}")
