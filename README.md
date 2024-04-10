@@ -134,7 +134,7 @@ img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 # be sure to use VitInference.reset() function to reset the tracker after each video
 # There are a few flags that allows to customize VitInference, be sure to check the class definition
 model_path = './ckpts/vitpose-s-coco_25.pth'
-yolo_path = './yolov5s.pth'
+yolo_path = './yolov8s.pth'
 
 # If you want to use MPS (on new macbooks) use the torch checkpoints for both ViTPose and Yolo
 # If device is None will try to use cuda -> mps -> cpu (otherwise specify 'cpu', 'mps' or 'cuda')
