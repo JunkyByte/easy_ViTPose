@@ -44,6 +44,6 @@ tifffile==2023.9.18
 tqdm==4.66.1
 typing_extensions==4.8.0
 tzdata==2023.3
-ultralytics==8.0.184
+ultralytics==8.2.48
 urllib3>=2.0.7
 zipp==3.17.0
