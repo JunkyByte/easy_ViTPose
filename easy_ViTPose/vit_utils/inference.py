@@ -66,6 +66,7 @@ def pad_image(image: np.ndarray, aspect_ratio: float) -> np.ndarray:
         padded_image = np.pad(image,
                               pad_width=((top_pad, bottom_pad), (0, 0), (0, 0)),
                               mode='constant')
+
     return padded_image, (left_pad, top_pad)
 
 

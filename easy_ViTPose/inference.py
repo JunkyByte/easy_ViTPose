@@ -234,7 +234,7 @@ class VitInference:
         results = None
         if (self.tracker is None or
            (self.frame_counter % self.yolo_step == 0 or self.frame_counter < 3)):
-            results = self.yolo(img, verbose=False, imgsz=self.yolo_size,
+            results = self.yolo(img[..., ::-1], verbose=False, imgsz=self.yolo_size,
                                 device=self.device if self.device != 'cuda' else 0,
                                 classes=self.yolo_classes)[0]
             res_pd = np.array([r[:5].tolist() for r in  # TODO: Confidence threshold
@@ -292,7 +292,7 @@ class VitInference:
         bboxes, ids, scores = self._tracker_res
 
         if self._yolo_res is not None and (show_raw_yolo or (self.tracker is None and show_yolo)):
-            img = np.array(self._yolo_res.plot())
+            img = np.array(self._yolo_res.plot())[..., ::-1]
 
         if show_yolo and self.tracker is not None:
             img = draw_bboxes(img, bboxes, ids, scores)

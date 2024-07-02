@@ -22,7 +22,7 @@ except ModuleNotFoundError:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--input', type=str, default='examples/sample.jpg',
+    parser.add_argument('--input', type=str, required=True,
                         help='path to image / video or webcam ID (=cv2)')
     parser.add_argument('--output-path', type=str, default='',
                         help='output path, if the path provided is a directory '
