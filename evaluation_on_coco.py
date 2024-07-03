@@ -29,19 +29,17 @@ def parse_arguments():
 
 
 def evaluation_on_coco(model_path, model_name, yolo_path, img_folder_path, annFile):
-    # get image IDs of images in val set for which ground truth annotations exist for keypoinys
-
-
+    # get image IDs of images in val set 
     # Opening JSON file
     f = open(annFile)
     gt_annotations = json.load(f)
     f.close()
 
     image_ids = set()
-    for ann in gt_annotations['annotations']:
-        image_ids.add(ann['image_id'])
-
+    for ann in gt_annotations['images']:
+        image_ids.add(ann['id'])
     
+
     model = VitInference(model_path, yolo_path, model_name = model_name, yolo_size=640, is_video=False, device=None)
     results_list = []
 
