@@ -242,6 +242,7 @@ class VitInference:
         self.frame_counter += 1
 
         frame_keypoints = {}
+        scores_bbox = {}
         ids = None
         if self.tracker is not None:
             res_pd = self.tracker.update(res_pd)
@@ -268,6 +269,7 @@ class VitInference:
             # Transform keypoints to original image
             keypoints[:, :2] += bbox[:2][::-1] - [top_pad, left_pad]
             frame_keypoints[id] = keypoints
+            scores_bbox[id] = scores[id] # Replace this with avg_keypoint_conf*person_obj_conf. For now, only person_obj_conf from yolo is being used.
 
         if self.save_state:
             self._img = img
@@ -275,7 +277,7 @@ class VitInference:
             self._tracker_res = (bboxes, ids, scores)
             self._keypoints = frame_keypoints
 
-        return frame_keypoints
+        return frame_keypoints, scores_bbox
 
     def draw(self, show_yolo=True, show_raw_yolo=False, confidence_threshold=0.5):
         """
