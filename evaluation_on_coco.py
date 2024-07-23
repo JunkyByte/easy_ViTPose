@@ -46,33 +46,24 @@ def evaluation_on_coco(model_path, model_name, yolo_path, img_folder_path, annFi
     for image_id in tqdm(image_ids):
         # run inference here
         img_path = os.path.join(img_folder_path, str(image_id).zfill(12) + '.jpg')
-        # print('\nPath ', img_path)
-
         img = cv2.imread(img_path)
 
         
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        # print('Img read, ', img.shape)
-        frame_keypoints, conf_score = model.inference(img)
-        # patches_skipped_total.append(patches_skipped) 
-        # print(frame_keypoints)   
+        frame_keypoints = model.inference(img)
         for key in frame_keypoints:
-            # print(key)
             results_element = {}
             results_element['image_id'] = image_id
             results_element['category_id'] = 1
-            results_element['score'] = conf_score[key]
+            results_element['score'] = model._scores_bbox[key]
             results_element['bbox'] = []
             keypoints = []
             for k in frame_keypoints[key]:
                 keypoints.append(float(round(k[1], 0)))
                 keypoints.append(float(round(k[0], 0)))
                 keypoints.append(0)
-            # print(keypoints)
             results_element['keypoints'] = keypoints
             results_list.append(results_element)
-
-
 
 
     # Define the file path where you want to save the JSON file

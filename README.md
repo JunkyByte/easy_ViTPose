@@ -243,7 +243,7 @@ You can check `train.py`, `datasets/COCO.py` and `config.yaml` for details.
 
 
 ## TODO:
-- refactor finetuning
+- refactor finetuning (currently not available)
 - benchmark and check bottlenecks of inference pipeline
 - parallel batched inference
 - other minor fixes

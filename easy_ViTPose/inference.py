@@ -276,8 +276,9 @@ class VitInference:
             self._yolo_res = results
             self._tracker_res = (bboxes, ids, scores)
             self._keypoints = frame_keypoints
+            self._scores_bbox = scores_bbox
 
-        return frame_keypoints, scores_bbox
+        return frame_keypoints
 
     def draw(self, show_yolo=True, show_raw_yolo=False, confidence_threshold=0.5):
         """
