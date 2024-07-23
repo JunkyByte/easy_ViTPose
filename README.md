@@ -203,8 +203,47 @@ You can check `train.py`, `datasets/COCO.py` and `config.yaml` for details.
 
 ---
 
+## Evaluation on COCO dataset
+1. Download COCO dataset images and labels
+    - 2017 Val images [5K/1GB]: http://images.cocodataset.org/zips/val2017.zip <br>
+        The extracted directory looks like this:
+        ```
+        val2017/              
+        ├── 000000000139.jpg
+        ├── 000000000285.jpg
+        ├── 000000000632.jpg
+        └── ...
+        ```  
+    - 2017 Train/Val annotations [241MB]: http://images.cocodataset.org/annotations/annotations_trainval2017.zip <br>
+        The extracted directory looks like this:
+        ```
+        annotations/              
+        ├── person_keypoints_val2017.json
+        ├── person_keypoints_train2017.json
+        └── ...
+        ```  
+
+2. Run the following command:
+
+    ```bash
+
+    $ python evaluation_on_coco.py
+
+    Command line arguments:
+        --model_path: Path to the pretrained ViT Pose model
+        
+        --yolo_path: Path to the YOLOv8 model
+
+        --img_folder_path: Path to the directory containing COCO val images (/val2017 extracted in step 1). 
+
+        --annFile: Path to json file for COCO keypoints for val set (annotations/person_keypoints_val2017.json extracted in step 1)
+    ```
+
+---
+
+
 ## TODO:
-- refactor finetuning
+- refactor finetuning (currently not available)
 - benchmark and check bottlenecks of inference pipeline
 - parallel batched inference
 - other minor fixes
