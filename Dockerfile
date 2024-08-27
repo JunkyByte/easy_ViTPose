@@ -8,4 +8,5 @@ RUN pip install -e . && pip install -r requirements.txt && pip install -r requir
 # OpenCV dependencies
 RUN apt-get update && apt-get install -y libgl1
 
+# docker build . -t easy_vitpose
 # docker run --gpus all --rm -it --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 -v ./models:/models -v ~/cats:/cats easy_vitpose python inference.py --det-class cat --input /cats/image.jpg --output-path /cats --save-img --model /models/vitpose-l-coco.onnx --yolo /models/yolov8l.pt
