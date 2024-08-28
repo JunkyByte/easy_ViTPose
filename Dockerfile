@@ -1,7 +1,7 @@
 FROM nvcr.io/nvidia/pytorch:24.07-py3
 COPY . /easy_ViTPose
 WORKDIR /easy_ViTPose/
-ENV DEBAIN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN pip uninstall -y $(pip list --format=freeze | grep opencv) && \
     rm -rf /usr/local/lib/python3.10/dist-packages/cv2/
