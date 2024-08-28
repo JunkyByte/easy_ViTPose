@@ -25,7 +25,7 @@ https://github.com/JunkyByte/easy_ViTPose/assets/24314647/e9a82c17-6e99-4111-8cc
 
 https://github.com/JunkyByte/easy_ViTPose/assets/24314647/63af44b1-7245-4703-8906-3f034a43f9e3
 
-(Credits dance: https://www.youtube.com/watch?v=p-rSdt0aFuw )
+(Credits dance: https://www.youtube.com/watch?v=p-rSdt0aFuw )  
 (Credits zebras: https://www.youtube.com/watch?v=y-vELRYS8Yk )
 
 ## Features
@@ -248,7 +248,7 @@ The system may be built in a container using Docker:
 `docker build . -t easy_vitpose`
 
 The image is based on NVIDIA's PyTorch image, which is 20GB large. 
-If you have a compatible GPU set up with [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) 
+If you have a compatible GPU set up with [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html), 
 ViTPose will run with hardware acceleration.
 
 To test an example, create a folder called `cats` in your home directory with a picture of a cat as `image.jpg`. 
@@ -271,5 +271,5 @@ The result image may be viewed in your `cats` folder.
 Feel free to open issues, pull requests and contribute on these TODOs.
 
 ## Reference
-Thanks to the VitPose authors and their official implementation [ViTAE-Transformer/ViTPose](https://github.com/ViTAE-Transformer/ViTPose).
+Thanks to the VitPose authors and their official implementation [ViTAE-Transformer/ViTPose](https://github.com/ViTAE-Transformer/ViTPose).  
 The SORT code is taken from [abewley/sort](https://github.com/abewley/sort)
