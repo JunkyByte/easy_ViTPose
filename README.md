@@ -242,6 +242,22 @@ You can check `train.py`, `datasets/COCO.py` and `config.yaml` for details.
 ---
 
 
+## Docker
+The system may be built in a container using the Dockerfile:
+
+`docker build . -t easy_vitpose`
+
+The image is based on NVIDIA's PyTorch image, which is 20GB large. 
+If you have a compatible GPU set up with [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html), 
+ViTPose will run with GPU acceleration.
+
+To test an example, create a folder called `cats` in your home directory with a picture of a cat as `image.jpg`. 
+Run `./models/download.sh` to fetch the large yolov8 and coco ViTPose models. Then run inference using the following command:
+
+`docker run --gpus all --rm -it --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 -v ./models:/models -v ~/cats:/cats easy_vitpose python inference.py --det-class cat --input /cats/image.jpg --output-path /cats --save-img --model /models/vitpose-l-coco.onnx --yolo /models/yolov8l.pt`
+
+The result image may be viewed in your `cats` folder.
+
 ## TODO:
 - refactor finetuning (currently not available)
 - benchmark and check bottlenecks of inference pipeline
