@@ -245,14 +245,15 @@ You can check `train.py`, `datasets/COCO.py` and `config.yaml` for details.
 ## Docker
 The system may be built in a container using Docker. This is intended to demonstrate container-wise inference, adapt it to your own needs by changing models and skeletons:
 
-> [!NOTE]
-> `nvidia-container-toolkit` system package must be installed to support cuda inference
-
 `docker build . -t easy_vitpose`
 
 The image is based on NVIDIA's PyTorch image, which is 20GB large. 
 If you have a compatible GPU set up with [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html), 
 ViTPose will run with hardware acceleration.
+
+> [!NOTE]
+> `nvidia-container-toolkit` system package must be installed to support cuda inference.
+> Be sure to rebuild the container once it has been installed.
 
 To test an example, create a folder called `cats` with a picture of a cat as `image.jpg`. 
 Run `./models/download.sh` to fetch the large yolov8 and ap10k ViTPose models. Then run inference using the following command (replace with the correct `cats` and `models` paths):
