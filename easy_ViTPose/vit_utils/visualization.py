@@ -31,7 +31,7 @@ def joints_dict():
                 16: "right_knee",
                 17: "left_ankle",
                 18: "right_ankle",
-                19: "left_big toe",
+                19: "left_big_toe",
                 20: "left_small_toe",
                 21: "left_heel",
                 22: "right_big_toe",
