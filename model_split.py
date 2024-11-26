@@ -18,7 +18,7 @@ def main():
     if args.target is None:
         args.target = '/'.join(args.source.split('/')[:-1])
 
-    ckpt = torch.load(args.source, map_location='cpu')
+    ckpt = torch.load(args.source, map_location='cpu', weights_only=True)
     
     experts = dict()
 

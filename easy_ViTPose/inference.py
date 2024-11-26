@@ -159,7 +159,7 @@ class VitInference:
             if use_trt:
                 self._vit_pose = torch.jit.load(model)
             else:
-                ckpt = torch.load(model, map_location='cpu')
+                ckpt = torch.load(model, map_location='cpu', weights_only=True)
                 if 'state_dict' in ckpt:
                     self._vit_pose.load_state_dict(ckpt['state_dict'])
                 else:
@@ -256,7 +256,7 @@ class VitInference:
         if ids is None:
             ids = range(len(bboxes))
 
-        for bbox, id in zip(bboxes, ids):
+        for bbox, id, score in zip(bboxes, ids, scores):
             # TODO: Slightly bigger bbox
             bbox[[0, 2]] = np.clip(bbox[[0, 2]] + [-pad_bbox, pad_bbox], 0, img.shape[1])
             bbox[[1, 3]] = np.clip(bbox[[1, 3]] + [-pad_bbox, pad_bbox], 0, img.shape[0])
@@ -269,7 +269,7 @@ class VitInference:
             # Transform keypoints to original image
             keypoints[:, :2] += bbox[:2][::-1] - [top_pad, left_pad]
             frame_keypoints[id] = keypoints
-            scores_bbox[id] = scores[id] # Replace this with avg_keypoint_conf*person_obj_conf. For now, only person_obj_conf from yolo is being used.
+            scores_bbox[id] = score  # Replace this with avg_keypoint_conf*person_obj_conf. For now, only person_obj_conf from yolo is being used.
 
         if self.save_state:
             self._img = img

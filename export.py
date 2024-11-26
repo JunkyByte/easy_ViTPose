@@ -34,7 +34,7 @@ C, H, W = (3, 256, 192)
 
 model = ViTPose(model_cfg)
 
-ckpt = torch.load(CKPT_PATH, map_location='cpu')
+ckpt = torch.load(CKPT_PATH, map_location='cpu', weights_only=True)
 if 'state_dict' in ckpt:
     ckpt = ckpt['state_dict']
 
