@@ -89,8 +89,9 @@ if __name__ == "__main__":
     output_path = args.output_path
     if output_path:
         if os.path.isdir(output_path):
-            save_name_img = os.path.basename(input_path).replace(ext, f"_result{ext}")
-            save_name_json = os.path.basename(input_path).replace(ext, "_result.json")
+            og_ext = input_path[input_path.rfind('.'):]
+            save_name_img = os.path.basename(input_path).replace(og_ext, f"_result{ext}")
+            save_name_json = os.path.basename(input_path).replace(og_ext, "_result.json")
             output_path_img = os.path.join(output_path, save_name_img)
             output_path_json = os.path.join(output_path, save_name_json)
         else:
@@ -114,7 +115,7 @@ if __name__ == "__main__":
             assert fps > 0
             output_size = frame.shape[:2][::-1]
             out_writer = cv2.VideoWriter(output_path_img,
-                                         cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'),
+                                         cv2.VideoWriter_fourcc(*'X264'),  # More efficient codec
                                          fps, output_size)  # type: ignore
     else:
         reader = [np.array(Image.open(input_path).rotate(args.rotate))]  # type: ignore
