@@ -74,8 +74,16 @@ if __name__ == "__main__":
     if yolo is None:
         yolo = 'easy_ViTPose/' + ('yolov8s' + ('.onnx' if has_onnx and not (use_mps or use_cuda) else '.pt'))
     input_path = args.input
-    ext = input_path[input_path.rfind('.'):]
 
+    # Load the image / video reader
+    try:  # Check if is webcam
+        int(input_path)
+        is_video = True
+    except ValueError:
+        assert os.path.isfile(input_path), 'The input file does not exist'
+        is_video = input_path[input_path.rfind('.') + 1:].lower() in ['mp4', 'mov']
+
+    ext = '.mp4' if is_video else '.png'
     assert not (args.save_img or args.save_json) or args.output_path, \
         'Specify an output path if using save-img or save-json flags'
     output_path = args.output_path
@@ -88,14 +96,6 @@ if __name__ == "__main__":
         else:
             output_path_img = output_path + f'{ext}'
             output_path_json = output_path + '.json'
-
-    # Load the image / video reader
-    try:  # Check if is webcam
-        int(input_path)
-        is_video = True
-    except ValueError:
-        assert os.path.isfile(input_path), 'The input file does not exist'
-        is_video = input_path[input_path.rfind('.') + 1:].lower() in ['mp4', 'mov']
 
     wait = 0
     total_frames = 1
