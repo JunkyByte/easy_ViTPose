@@ -114,8 +114,17 @@ if __name__ == "__main__":
             assert ret
             assert fps > 0
             output_size = frame.shape[:2][::-1]
+
+            # Check if we have X264 otherwise use default MJPG
+            try:
+                temp_video = cv2.VideoWriter('/tmp/checkcodec.mp4',
+                                             cv2.VideoWriter_fourcc(*'h264'), 30, (32, 32))
+                opened = temp_video.isOpened()
+            except Exception:
+                opened = False
+            codec = 'h264' if opened else 'MJPG'
             out_writer = cv2.VideoWriter(output_path_img,
-                                         cv2.VideoWriter_fourcc(*'X264'),  # More efficient codec
+                                         cv2.VideoWriter_fourcc(*codec),  # More efficient codec
                                          fps, output_size)  # type: ignore
     else:
         reader = [np.array(Image.open(input_path).rotate(args.rotate))]  # type: ignore
