@@ -326,6 +326,32 @@ def joints_dict():
                 [126, 127], [127, 128], [112, 129], [129, 130], [130, 131],
                 [131, 132]
             ]
+        },
+
+        'custom': {
+            'keypoints': {
+                0: 'Nose',
+                1: 'Head',
+                2: 'Necktop',
+                3: 'Shoulder',
+                4: 'SpineFront',
+                5: 'SpineBack',
+                6: 'TailBase',
+                7: 'BottomBack',
+                8: 'BottomFront',
+                9: 'NeckBot',
+                10: 'LeftFrontLeg',
+                11: 'LeftFrontHoof',
+                12: 'RightFrontLeg',
+                13: 'RightFrontHoof',
+                14: 'LeftBackLeg',
+                15: 'LeftBackHoof',
+                16: 'RightBackHoof',
+                17: 'RightBackLeg'
+            },
+            'skeleton': [
+                [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 9], [9, 0], [10, 11], [12, 13], [14, 15], [16, 17], [6,14], [6,17], [3,10], [3,12]
+            ]
         }
     }
     return joints

@@ -202,6 +202,21 @@ Finetuning is possible but not officially supported right now. If you would like
 You can check `train.py`, `datasets/COCO.py` and `config.yaml` for details.
 
 ---
+Here provide necessary steps for training with own custom data
+### fintune with custom data
+download an official checkpoint, run ./model_split.py to get pre-trained model with single prediction-head
+prepare coco-format dataset
+config self.kpt_id, self.upper_body_ids, self.lower_body_ids, self.joints_weight in ./easy_ViTPose/datasets/COCO.py
+config ./easy_ViTPose/configs/train_configs/ViTPose_large_coco_256x192_custom.py 
+
+### inference on custom data
+1. config ./easy_ViTPose/configs/ViTPose_custom.py
+2. modify ./easy_ViTPose/vit_utils/visualization.py/joints_dict() for visulization of custom data
+
+
+---
+
+---
 
 ## Evaluation on COCO dataset
 1. Download COCO dataset images and labels

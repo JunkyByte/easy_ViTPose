@@ -30,7 +30,7 @@ class COCODataset(Dataset):
                  is_train=True, use_gt_bboxes=True, bbox_path="",
                  image_width=288, image_height=384,
                  scale=True, scale_factor=0.35, flip_prob=0.5, rotate_prob=0.5, rotation_factor=45., half_body_prob=0.3,
-                 use_different_joints_weight=False, heatmap_sigma=3, soft_nms=False):
+                 use_different_joints_weight=False, heatmap_sigma=3, soft_nms=False, kpt_id=21):
         """
         Initializes a new COCODataset object.
 
@@ -77,9 +77,9 @@ class COCODataset(Dataset):
                 Default: 3
             soft_nms (bool): enable soft non-maximum suppression.
                 Default: False
+            kpt_id (int): The category_id of the bounding boxes to keep from the COCO annotation file
         """
         super(COCODataset, self).__init__()
-
         self.root_path = root_path
         self.data_version = data_version
         self.is_train = is_train
@@ -94,30 +94,28 @@ class COCODataset(Dataset):
         self.use_different_joints_weight = use_different_joints_weight  # ToDo Check
         self.heatmap_sigma = heatmap_sigma
         self.soft_nms = soft_nms
+        self.kpt_id = kpt_id
 
         # Image & annotation path
         self.data_path = f"{root_path}/{data_version}"
-        self.annotation_path = f"{root_path}/annotations/person_keypoints_{data_version}.json"
+        self.annotation_path = f"{root_path}/{data_version}/config/config.json"
 
         self.image_size = (image_width, image_height)
         self.aspect_ratio = image_width * 1.0 / image_height
-
+        
         self.heatmap_size = (int(image_width / 4), int(image_height / 4))
         self.heatmap_type = 'gaussian'
         self.pixel_std = 200  # I don't understand the meaning of pixel_std (=200) in the original implementation
 
-        self.num_joints = 25
-        self.num_joints_half_body = 15
-
+        self.num_joints = 18
+        self.num_joints_half_body = 8
+        
         # eye, ear, shoulder, elbow, wrist, hip, knee, ankle
-        self.flip_pairs = [[1, 2], [3, 4], [6, 7], [8, 9], [10, 11], [12, 13],
-                           [15, 16], [17, 18], [19, 22], [20, 23], [21, 24]]
-        self.upper_body_ids = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-        self.lower_body_ids = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]
-        self.joints_weight = np.array([1., 1., 1., 1., 1., 1., 1., 1., 1.2, 1.2,
-                                       1.5, 1.5, 1., 1., 1., 1.2, 1.2, 1.5, 1.5,
-                                       1.5, 1.5, 1.5, 1.5, 1.5,
-                                       1.5]).reshape((self.num_joints, 1))
+        self.flip_pairs = [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10], [11, 12], [13, 14], [15, 16]]
+        self.upper_body_ids = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+        self.lower_body_ids = [10, 11, 12, 13, 14, 15, 16, 17]
+        self.joints_weight = np.array([1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 
+                                       1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5, 1.5]).reshape((self.num_joints, 1))
 
         self.transform = transforms.Compose([
             transforms.ToTensor(),
@@ -155,8 +153,9 @@ class COCODataset(Dataset):
         self.data = []
         # load annotations for each image of COCO
         for imgId in tqdm(self.coco.getImgIds(), desc="Prepare images, annotations ... "):
-            ann_ids = self.coco.getAnnIds(imgIds=imgId, iscrowd=False)  # annotation ids
-            img = self.coco.loadImgs(imgId)[0]  # load img
+
+            ann_ids = self.coco.getAnnIds(imgIds=imgId, iscrowd=False) # annotation ids
+            img = self.coco.loadImgs(imgId)[0] # load img
 
             if self.use_gt_bboxes:
                 objs = self.coco.loadAnns(ann_ids)
@@ -165,11 +164,11 @@ class COCODataset(Dataset):
                 valid_objs = []
                 for obj in objs:
                     # Skip non-person objects (it should never happen)
-                    if obj['category_id'] != 1:
+                    if obj['category_id'] != self.kpt_id:
                         continue
 
                     # ignore objs without keypoints annotation
-                    if max(obj['keypoints']) == 0 and max(obj['foot_kpts']) == 0:
+                    if max(obj['keypoints']) == 0:
                         continue
 
                     x, y, w, h = obj['bbox']
@@ -190,11 +189,8 @@ class COCODataset(Dataset):
 
             # for each annotation of this image, add the formatted annotation to self.data
             for obj in objs:
-                joints = np.zeros((self.num_joints, 2), dtype=np.float)
-                joints_visibility = np.ones((self.num_joints, 2), dtype=np.float)
-
-                # Add foot data to keypoints
-                obj['keypoints'].extend(obj['foot_kpts'])
+                joints = np.zeros((self.num_joints, 2), dtype=float)
+                joints_visibility = np.ones((self.num_joints, 2), dtype=float)
 
                 if self.use_gt_bboxes:
                     """ COCO pre-processing
@@ -203,50 +199,31 @@ class COCODataset(Dataset):
                     - Skip non-person objects (it should never happen)
                     if obj['category_id'] != 1:
                         continue
-
+                    
                     # ignore objs without keypoints annotation
                     if max(obj['keypoints']) == 0:
                         continue
                     """
 
-                    # Not all joints are already present, skip them
-                    vjoints = list(range(self.num_joints))
-                    vjoints.remove(5)
-                    vjoints.remove(14)
-
-                    for idx, pt in enumerate(vjoints):
-                        if pt == 5 or pt == 14:
-                            continue  # Neck and hip are manually filled
-                        joints[pt, 0] = obj['keypoints'][idx * 3 + 0]
-                        joints[pt, 1] = obj['keypoints'][idx * 3 + 1]
-                        t_vis = int(np.clip(obj['keypoints'][idx * 3 + 2], 0, 1))
+                    for pt in range(self.num_joints):
+                        joints[pt, 0] = obj['keypoints'][pt * 3 + 0]
+                        joints[pt, 1] = obj['keypoints'][pt * 3 + 1]
+                        t_vis = int(np.clip(obj['keypoints'][pt * 3 + 2], 0, 1))  # ToDo check correctness
                         """
                         - COCO:
                           if visibility == 0 -> keypoint is not in the image.
-                          if visibility == 1 -> keypoint is in the image BUT not visible
-                                                (e.g. behind an object).
-                          if visibility == 2 -> keypoint looks clearly
-                                                (i.e. it is not hidden).
+                          if visibility == 1 -> keypoint is in the image BUT not visible (e.g. behind an object).
+                          if visibility == 2 -> keypoint looks clearly (i.e. it is not hidden).
                         """
                         joints_visibility[pt, 0] = t_vis
                         joints_visibility[pt, 1] = t_vis
 
                 center, scale = self._box2cs(obj['clean_bbox'][:4])
 
-                # Add neck and c-hip (check utils/visualization.py for keypoints)
-                joints[5, 0] = (joints[6, 0] + joints[7, 0]) / 2
-                joints[5, 1] = (joints[6, 1] + joints[7, 1]) / 2
-                joints_visibility[5, :] = min(joints_visibility[6, 0],
-                                              joints_visibility[7, 0])
-                joints[14, 0] = (joints[12, 0] + joints[13, 0]) / 2
-                joints[14, 1] = (joints[12, 1] + joints[13, 1]) / 2
-                joints_visibility[14, :] = min(joints_visibility[12, 0],
-                                               joints_visibility[13, 0])
-
                 self.data.append({
                     'imgId': imgId,
                     'annId': obj['id'],
-                    'imgPath': f"{self.root_path}/{self.data_version}/{imgId:012d}.jpg",
+                    'imgPath': f"{self.root_path}/{self.data_version}/images/{img['file_name']}.png",
                     'center': center,
                     'scale': scale,
                     'joints': joints,
@@ -267,15 +244,11 @@ class COCODataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, index):
-        # index = 0
         joints_data = self.data[index].copy()
 
         # Load image
         try:
             image = np.array(Image.open(joints_data['imgPath']))
-            if image.ndim == 2:
-                # Some images are grayscale and will fail the trasform, convert to RGB
-                image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
         except:
             raise ValueError(f"Fail to read {joints_data['imgPath']}")
 
@@ -289,8 +262,7 @@ class COCODataset(Dataset):
 
         # Apply data augmentation
         if self.is_train:
-            if (self.half_body_prob and random.random() < self.half_body_prob and
-                np.sum(joints_vis[:, 0]) > self.num_joints_half_body):
+            if self.half_body_prob and random.random() < self.half_body_prob and np.sum(joints_vis[:, 0]) > self.num_joints_half_body:
                 c_half_body, s_half_body = self._half_body_transform(joints, joints_vis)
 
                 if c_half_body is not None and s_half_body is not None:
@@ -300,20 +272,16 @@ class COCODataset(Dataset):
             rf = self.rotation_factor
 
             if self.scale:
-                # A random scale factor in [1 - sf, 1 + sf]
-                s = s * np.clip(random.random() * sf + 1, 1 - sf, 1 + sf)
+                s = s * np.clip(random.random() * sf + 1, 1 - sf, 1 + sf)  # A random scale factor in [1 - sf, 1 + sf]
 
             if self.rotate_prob and random.random() < self.rotate_prob:
-                # A random rotation factor in [-2 * rf, 2 * rf]
-                r = np.clip(random.random() * rf, -rf * 2, rf * 2)
+                r = np.clip(random.random() * rf, -rf * 2, rf * 2)  # A random rotation factor in [-2 * rf, 2 * rf]
             else:
                 r = 0
 
             if self.flip_prob and random.random() < self.flip_prob:
                 image = image[:, ::-1, :]
-                joints, joints_vis = fliplr_joints(joints, joints_vis,
-                                                   image.shape[1],
-                                                   self.flip_pairs)
+                joints, joints_vis = fliplr_joints(joints, joints_vis, image.shape[1], self.flip_pairs)
                 c[0] = image.shape[1] - c[0] - 1
 
         # Apply affine transform on joints and image
@@ -342,19 +310,6 @@ class COCODataset(Dataset):
         joints_data['scale'] = s
         joints_data['rotation'] = r
         joints_data['score'] = score
-
-        # from utils.visualization import draw_points_and_skeleton, joints_dict
-        # image = np.rollaxis(image.detach().cpu().numpy(), 0, 3)
-        # joints = np.hstack((joints[:, ::-1], joints_vis[:, 0][..., None]))
-        # image = draw_points_and_skeleton(image.copy(), joints,
-        #                                  joints_dict()['coco']['skeleton'],
-        #                                  person_index=0,
-        #                                  points_color_palette='gist_rainbow',
-        #                                  skeleton_color_palette='jet',
-        #                                  points_palette_samples=10,
-        #                                  confidence_threshold=0.4)
-        # cv2.imshow('', image)
-        # cv2.waitKey(0)
 
         return image, target.astype(np.float32), target_weight.astype(np.float32), joints_data
 
@@ -486,7 +441,7 @@ class COCODataset(Dataset):
     def _write_coco_keypoint_results(self, keypoints, res_file):
         data_pack = [
             {
-                'cat_id': 1,  # 1 == 'person'
+                'cat_id': self.kpt_id,  # 1 == 'person', 21 == "cow"
                 'cls': 'person',
                 'ann_type': 'keypoints',
                 'keypoints': keypoints

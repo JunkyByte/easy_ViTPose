@@ -124,7 +124,7 @@ class VitInference:
         if dataset is None:
             dataset = infer_dataset_by_path(model)
 
-        assert dataset in ['mpii', 'coco', 'coco_25', 'wholebody', 'aic', 'ap10k', 'apt36k'], \
+        assert dataset in ['mpii', 'coco', 'coco_25', 'wholebody', 'aic', 'ap10k', 'apt36k', 'custom'], \
             'The specified dataset is not valid'
 
         # Dataset can now be set for visualization
