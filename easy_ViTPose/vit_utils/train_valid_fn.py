@@ -141,7 +141,7 @@ def train_model(model: nn.Module, datasets_train: Dataset, datasets_valid: Datas
 
             if (epoch + 1) % cfg.save_interval == 0:
                 torch.save(model.module.state_dict(), osp.join(cfg.work_dir, f"epoch{str(epoch).zfill(3)}.pth"))
-                print(f">> Checkpoint saved.")
+                logger.info(f">> Checkpoint saved.")
 
             # validation
             if validate:

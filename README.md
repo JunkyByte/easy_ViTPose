@@ -245,7 +245,7 @@ This guide provides the general process to fintune ViTPose on your own custom da
   ```
 
 ### 4. Inference on Custom Data
-- Edit ```./easy_ViTPose/configs/ViTPose_custom.py```
+- Edit number of keypoints in ```./easy_ViTPose/configs/ViTPose_custom.py```.
 - Modify the ```joints_dict()``` dictionary for visualization in ```./easy_ViTPose/vit_utils/visualization.py``` to fit your custom data.
 - Run the following example command with your YOLO detection class and dataset name:
 ```bash
