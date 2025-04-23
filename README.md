@@ -237,7 +237,8 @@ This guide provides the general process to fintune ViTPose on your own custom da
 - Edit your training config at:
   ```./easy_ViTPose/configs/train_configs/ViTPose_large_coco_256x192_custom.py```
 
-  **Note: This is a sample config file for ViTPose large; you can refer to other config files for customization.**
+> [!NOTE]
+> This is a sample config file for ViTPose large; you can refer to other config files for customization.
 
 - Start training:
   ```bash
@@ -249,7 +250,7 @@ This guide provides the general process to fintune ViTPose on your own custom da
 - Modify the ```joints_dict()``` dictionary for visualization in ```./easy_ViTPose/vit_utils/visualization.py``` to fit your custom data.
 - Run the following example command with your YOLO detection class and dataset name:
 ```bash
-python inference.py --input ../files/videos/ --model ../files/best.pth --yolo ../files/yolo11x.pt --dataset custom --model-name l --output-path output/ --save-img --save-json --show-yolo --det-class cow --conf-threshold 0.25 --yolo-size 640
+python inference.py --input INPUT_PATH --model ./best.pth --yolo ./yolo11x.pt --dataset custom --model-name l --output-path OUTPUT_PATH --det-class cow --save-img --save-json --show-yolo  --conf-threshold 0.25 --yolo-size 640
 ```
 
 

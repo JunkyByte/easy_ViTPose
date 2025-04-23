@@ -74,7 +74,6 @@ def train_model(model: nn.Module, datasets_train: Dataset, datasets_valid: Datas
     
     # Optimizer
     optimizer = Adam(model.parameters(), lr=cfg.optimizer['lr'])
-    layerwise_optimizer = optimizer
 
     # Learning rate scheduler (MultiStepLR)
     scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=cfg.lr_config['factor'], patience=cfg.lr_config['patience'])
@@ -110,7 +109,7 @@ def train_model(model: nn.Module, datasets_train: Dataset, datasets_valid: Datas
             total_loss = 0
             tic = time()
             for batch_idx, batch in enumerate(train_pbar):
-                layerwise_optimizer.zero_grad()
+                optimizer.zero_grad()
                     
                 images, targets, target_weights, __ = batch
                 images = images.to('cuda')
@@ -123,14 +122,14 @@ def train_model(model: nn.Module, datasets_train: Dataset, datasets_valid: Datas
                         loss = criterion(outputs, targets, target_weights)
                     scaler.scale(loss).backward()
                     clip_grad_norm_(model.parameters(), **cfg.optimizer_config['grad_clip'])
-                    scaler.step(layerwise_optimizer)
+                    scaler.step(optimizer)
                     scaler.update()
                 else:
                     outputs = model(images)
                     loss = criterion(outputs, targets, target_weights)
                     loss.backward()
                     clip_grad_norm_(model.parameters(), **cfg.optimizer_config['grad_clip'])
-                    layerwise_optimizer.step()
+                    optimizer.step()
                 
                 total_loss += loss.item()
                 train_pbar.set_description(f"🏋️> Epoch [{str(epoch).zfill(3)}/{str(cfg.total_epochs).zfill(3)}] | Loss {loss.item():.5f} | LR {optimizer.param_groups[0]['lr']:.6f} | Step")
