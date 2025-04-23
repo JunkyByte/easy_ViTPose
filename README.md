@@ -197,9 +197,64 @@ The output format of the json files:
 }
 ```
 
+---
 ## Finetuning
-Finetuning is possible but not officially supported right now. If you would like to finetune and need help open an issue.  
-You can check `train.py`, `datasets/COCO.py` and `config.yaml` for details.
+This guide provides the general process to fintune ViTPose on your own custom dataset.
+### 1. Prepare Pre-trained Checkpoint
+
+- Download an official ViTPose checkpoint from the [official release](https://github.com/ViTAE-Transformer/ViTPose).
+- Convert the official checkpoint into a single-head model suitable for fine-tuning.
+  ```bash
+  python ./model_split.py --source SOURCE --prefix PREFIX --target TARGET
+  ```
+- Set the checkpoint path for resuming from the model in:
+
+  ```./easy_ViTPose/config.yaml```
+### 2. Prepare Dataset
+- Prepare your dataset in **COCO format** with the following directory structure:
+    ```
+    data/
+    ├── train/
+    │   ├── config/
+    │   │   └── config.json
+    │   └── images/
+    │       ├── file_name_0.jpg
+    │       ├── file_name_1.jpg
+    │       ├── file_name_2.jpg
+    │       └── ...
+    ├── val/...
+    └── test/...
+    ```
+    or modify ```./easy_ViTPose/datasets/COCO.py``` to fit your own structure if necessary.
+
+- Configure attributes in ```./easy_ViTPose/datasets/COCO.py``` according to your dataset:
+    - ```self.kpt_id```
+    - ```self.upper_body_ids```
+    - ```self.lower_body_ids```
+    - ```self.joints_weight```
+
+### 3. Configure and Start Training
+- Edit your training config at:
+  ```./easy_ViTPose/configs/train_configs/ViTPose_large_coco_256x192_custom.py```
+
+> [!NOTE]
+> This is a sample config file for ViTPose large; you can refer to other config files for customization.
+
+- Start training:
+  ```bash
+  python train.py --config-path config.yaml --model-name 'c' --freeze-backbone False
+  ```
+
+### 4. Inference on Custom Data
+- Edit number of keypoints in ```./easy_ViTPose/configs/ViTPose_custom.py```.
+- Modify the ```joints_dict()``` dictionary for visualization in ```./easy_ViTPose/vit_utils/visualization.py``` to fit your custom data.
+- Run the following example command with your YOLO detection class and dataset name:
+```bash
+python inference.py --input INPUT_PATH --model ./best.pth --yolo ./yolo11x.pt --dataset custom --model-name l --output-path OUTPUT_PATH --det-class cow --save-img --save-json --show-yolo  --conf-threshold 0.25 --yolo-size 640
+```
+
+
+---
 
 ---
 

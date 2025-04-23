@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 import time
+import glob
 
 from PIL import Image
 import cv2
@@ -13,58 +14,14 @@ from easy_ViTPose.vit_utils.inference import NumpyEncoder, VideoReader
 from easy_ViTPose.inference import VitInference
 from easy_ViTPose.vit_utils.visualization import joints_dict
 
-try:
-    import onnxruntime  # noqa: F401
-    has_onnx = True
-except ModuleNotFoundError:
-    has_onnx = False
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--input', type=str, required=True,
-                        help='path to image / video or webcam ID (=cv2)')
-    parser.add_argument('--output-path', type=str, default='',
-                        help='output path, if the path provided is a directory '
-                        'output files are "input_name +_result{extension}".')
-    parser.add_argument('--model', type=str, required=True,
-                        help='checkpoint path of the model')
-    parser.add_argument('--yolo', type=str, required=False, default=None,
-                        help='checkpoint path of the yolo model')
-    parser.add_argument('--dataset', type=str, required=False, default=None,
-                        help='Name of the dataset. If None it"s extracted from the file name. \
-                              ["coco", "coco_25", "wholebody", "mpii", "ap10k", "apt36k", "aic"]')
-    parser.add_argument('--det-class', type=str, required=False, default=None,
-                        help='["human", "cat", "dog", "horse", "sheep", \
-                               "cow", "elephant", "bear", "zebra", "giraffe", "animals"]')
-    parser.add_argument('--model-name', type=str, required=False, choices=['s', 'b', 'l', 'h'],
-                        help='[s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H]')
-    parser.add_argument('--yolo-size', type=int, required=False, default=320,
-                        help='YOLOv8 image size during inference')
-    parser.add_argument('--conf-threshold', type=float, required=False, default=0.5,
-                        help='Minimum confidence for keypoints to be drawn. [0, 1] range')
-    parser.add_argument('--rotate', type=int, choices=[0, 90, 180, 270],
-                        required=False, default=0,
-                        help='Rotate the image of [90, 180, 270] degress counterclockwise')
-    parser.add_argument('--yolo-step', type=int,
-                        required=False, default=1,
-                        help='The tracker can be used to predict the bboxes instead of yolo for performance, '
-                             'this flag specifies how often yolo is applied (e.g. 1 applies yolo every frame). '
-                             'This does not have any effect when is_video is False')
-    parser.add_argument('--single-pose', default=False, action='store_true',
-                        help='Do not use SORT tracker because single pose is expected in the video')
-    parser.add_argument('--show', default=False, action='store_true',
-                        help='preview result during inference')
-    parser.add_argument('--show-yolo', default=False, action='store_true',
-                        help='draw yolo results')
-    parser.add_argument('--show-raw-yolo', default=False, action='store_true',
-                        help='draw yolo result before that SORT is applied for tracking'
-                        ' (only valid during video inference)')
-    parser.add_argument('--save-img', default=False, action='store_true',
-                        help='save image results')
-    parser.add_argument('--save-json', default=False, action='store_true',
-                        help='save json results')
-    args = parser.parse_args()
+def inference(args):
+    try:
+        import onnxruntime  # noqa: F401
+        has_onnx = True
+    except ModuleNotFoundError:
+        has_onnx = False
 
     use_mps = hasattr(torch.backends, 'mps') and torch.backends.mps.is_available()
     use_cuda = torch.cuda.is_available()
@@ -81,22 +38,22 @@ if __name__ == "__main__":
         is_video = True
     except ValueError:
         assert os.path.isfile(input_path), 'The input file does not exist'
-        is_video = input_path[input_path.rfind('.') + 1:].lower() in ['mp4', 'mov']
+        is_video = input_path[input_path.rfind('.') + 1:].lower() in ['avi', 'mp4', 'mov']
 
     ext = '.mp4' if is_video else '.png'
     assert not (args.save_img or args.save_json) or args.output_path, \
         'Specify an output path if using save-img or save-json flags'
     output_path = args.output_path
-    if output_path:
-        if os.path.isdir(output_path):
-            og_ext = input_path[input_path.rfind('.'):]
-            save_name_img = os.path.basename(input_path).replace(og_ext, f"_result{ext}")
-            save_name_json = os.path.basename(input_path).replace(og_ext, "_result.json")
-            output_path_img = os.path.join(output_path, save_name_img)
-            output_path_json = os.path.join(output_path, save_name_json)
-        else:
-            output_path_img = output_path + f'{ext}'
-            output_path_json = output_path + '.json'
+
+    # Output path
+    file_output_path = os.path.join(output_path, os.path.basename(input_path))
+    os.makedirs(file_output_path, exist_ok=True)
+    og_ext = input_path[input_path.rfind('.'):]
+    save_name_img = os.path.basename(input_path).replace(og_ext, f"_result{ext}")
+    save_name_json = os.path.basename(input_path).replace(og_ext, "_result.json")
+    output_path_img = os.path.join(file_output_path, save_name_img)
+    output_path_json = os.path.join(file_output_path, save_name_json)
+
 
     wait = 0
     total_frames = 1
@@ -186,3 +143,69 @@ if __name__ == "__main__":
     if is_video and args.save_img:
         out_writer.release()
     cv2.destroyAllWindows()
+
+
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input', type=str, required=True,
+                        help='path to image / video or webcam ID (=cv2)')
+    parser.add_argument('--output-path', type=str, default='',
+                        help='output path, if the path provided is a directory '
+                        'output files are "input_name +_result{extension}".')
+    parser.add_argument('--model', type=str, required=True,
+                        help='checkpoint path of the model')
+    parser.add_argument('--yolo', type=str, required=False, default=None,
+                        help='checkpoint path of the yolo model')
+    parser.add_argument('--dataset', type=str, required=False, default=None,
+                        help='Name of the dataset. If None it"s extracted from the file name. \
+                              ["coco", "coco_25", "wholebody", "mpii", "ap10k", "apt36k", "aic", "custom"]')
+    parser.add_argument('--det-class', type=str, required=False, default=None,
+                        help='["human", "cat", "dog", "horse", "sheep", \
+                               "cow", "elephant", "bear", "zebra", "giraffe", "animals"]')
+    parser.add_argument('--model-name', type=str, required=False, choices=['s', 'b', 'l', 'h'],
+                        help='[s: ViT-S, b: ViT-B, l: ViT-L, h: ViT-H]')
+    parser.add_argument('--yolo-size', type=int, required=False, default=320,
+                        help='YOLO image size during inference')
+    parser.add_argument('--conf-threshold', type=float, required=False, default=0.5,
+                        help='Minimum confidence for keypoints to be drawn. [0, 1] range')
+    parser.add_argument('--rotate', type=int, choices=[0, 90, 180, 270],
+                        required=False, default=0,
+                        help='Rotate the image of [90, 180, 270] degress counterclockwise')
+    parser.add_argument('--yolo-step', type=int,
+                        required=False, default=1,
+                        help='The tracker can be used to predict the bboxes instead of yolo for performance, '
+                             'this flag specifies how often yolo is applied (e.g. 1 applies yolo every frame). '
+                             'This does not have any effect when is_video is False')
+    parser.add_argument('--single-pose', default=False, action='store_true',
+                        help='Do not use SORT tracker because single pose is expected in the video')
+    parser.add_argument('--show', default=False, action='store_true',
+                        help='preview result during inference')
+    parser.add_argument('--show-yolo', default=False, action='store_true',
+                        help='draw yolo results')
+    parser.add_argument('--show-raw-yolo', default=False, action='store_true',
+                        help='draw yolo result before that SORT is applied for tracking'
+                        ' (only valid during video inference)')
+    parser.add_argument('--save-img', default=False, action='store_true',
+                        help='save image results')
+    parser.add_argument('--save-json', default=False, action='store_true',
+                        help='save json results')
+    args = parser.parse_args()
+
+
+
+    # If the input is a folder
+    if os.path.isdir(args.input): 
+            video_files = glob.glob(os.path.join(args.input, '*'))
+            video_files = [f for f in video_files if f.lower().endswith(('.avi', '.mp4', '.mov'))]
+            assert video_files, 'No video files found in the directory'
+
+            # Run inference on each video file
+            for video_file in video_files:
+                # Perform inference on each video file
+                print(f">>> Running inference on video: {video_file}")
+                args.input = video_file  # Update the input argument to the current video file
+                inference(args)
+    else:
+        inference(args)

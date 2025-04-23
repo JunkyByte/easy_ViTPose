@@ -17,10 +17,10 @@ from vit_utils.util import init_random_seed, set_random_seed
 from vit_utils.dist_util import get_dist_info, init_dist
 from vit_utils.logging import get_root_logger
 
-import configs.ViTPose_small_coco_256x192 as s_cfg
-import configs.ViTPose_base_coco_256x192 as b_cfg
-import configs.ViTPose_large_coco_256x192 as l_cfg
-import configs.ViTPose_huge_coco_256x192 as h_cfg
+import configs.train_configs.ViTPose_base_coco_256x192 as b_cfg
+import configs.train_configs.ViTPose_large_coco_256x192 as l_cfg
+import configs.train_configs.ViTPose_huge_coco_256x192 as h_cfg
+import configs.train_configs.ViTPose_large_coco_256x192_custom as c_cfg
 
 from vit_models.model import ViTPose
 from datasets.COCO import COCODataset
@@ -31,19 +31,20 @@ CUR_PATH = osp.dirname(__file__)
 @click.command()
 @click.option('--config-path', type=click.Path(exists=True), default='config.yaml', required=True, help='train config file path')
 @click.option('--model-name', type=str, default='b', required=True, help='[b: ViT-B, l: ViT-L, h: ViT-H]')
-def main(config_path, model_name):
+@click.option('--freeze-backbone', type=bool, default=False, help='Whether to freeze the backbone during training')
+def main(config_path, model_name, freeze_backbone):
         
     cfg = {'b':b_cfg,
-           's':s_cfg,
            'l':l_cfg,
-           'h':h_cfg}.get(model_name.lower())
+           'h':h_cfg,
+           'c':c_cfg}.get(model_name.lower())
     # Load config.yaml
     with open(config_path, 'r') as f:
         cfg_yaml = yaml.load(f, Loader=yaml.SafeLoader)
         
     for k, v in cfg_yaml.items():
         if hasattr(cfg, k):
-            raise ValueError(f"Already exists {k} in config")
+            raise ValueError(f"Already exsist {k} in config")
         else:
             cfg.__setattr__(k, v)
 
@@ -108,23 +109,23 @@ def main(config_path, model_name):
 
     # Set model
     model = ViTPose(cfg.model)
-    if cfg.resume_from:
-        # Load ckpt partially
+    if cfg.resume_from: # Load ckpt partially
         ckpt_state = torch.load(cfg.resume_from)['state_dict']
         ckpt_state.pop('keypoint_head.final_layer.bias')
         ckpt_state.pop('keypoint_head.final_layer.weight')
         model.load_state_dict(ckpt_state, strict=False)
 
-        # freeze the backbone, leave the head to be finetuned
-        model.backbone.frozen_stages = model.backbone.depth - 1
-        model.backbone.freeze_ffn = True
-        model.backbone.freeze_attn = True
-        model.backbone._freeze_stages()
+        if freeze_backbone:
+            print("Backbone frozen.")
+            model.backbone.frozen_stages = model.backbone.depth - 1
+            model.backbone.freeze_ffn = True
+            model.backbone.freeze_attn = True
+            model.backbone._freeze_stages()
     
     # Set dataset
     datasets_train = COCODataset(
         root_path=cfg.data_root, 
-        data_version="feet_train",
+        data_version="train",
         is_train=True, 
         use_gt_bboxes=True,
         image_width=192, 
@@ -142,7 +143,7 @@ def main(config_path, model_name):
     
     datasets_valid = COCODataset(
         root_path=cfg.data_root, 
-        data_version="feet_val",
+        data_version="val",
         is_train=False, 
         use_gt_bboxes=True,
         image_width=192, 
