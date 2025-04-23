@@ -12,7 +12,7 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.distributed import DistributedSampler
-from torch.cuda.amp import autocast, GradScaler
+from torch.amp import autocast, GradScaler
 from tqdm import tqdm
 from time import time
 
@@ -83,7 +83,7 @@ def train_model(model: nn.Module, datasets_train: Dataset, datasets_valid: Datas
     if cfg.use_amp:
         logger.info("Using Automatic Mixed Precision (AMP) training...")
         # Create a GradScaler object for FP16 training
-        scaler = GradScaler()
+        scaler = GradScaler(device='cuda')
     
     # Logging config
     total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -92,6 +92,9 @@ def train_model(model: nn.Module, datasets_train: Dataset, datasets_valid: Datas
     # - Num GPUs: {len(cfg.gpu_ids)}
     # - Batch size (per gpu): {cfg.data['samples_per_gpu']}
     # - LR: {cfg.optimizer['lr']: .6f}
+    #   >  LR decay factor: {cfg.lr_config['factor']}
+    #   >  Patience: {cfg.lr_config['patience']} epochs
+    # - Checkpoint save interval: {cfg.save_interval}
     # - Num params: {total_params:,d}
     # - AMP: {cfg.use_amp}
     #===================================# 
@@ -115,7 +118,7 @@ def train_model(model: nn.Module, datasets_train: Dataset, datasets_valid: Datas
                 target_weights = target_weights.to('cuda')
 
                 if cfg.use_amp:
-                    with autocast():
+                    with autocast(device_type='cuda'):
                         outputs = model(images)
                         loss = criterion(outputs, targets, target_weights)
                     scaler.scale(loss).backward()
@@ -136,23 +139,29 @@ def train_model(model: nn.Module, datasets_train: Dataset, datasets_valid: Datas
             avg_loss_train = total_loss/len(dataloader)
             logger.info(f"[Summary-train] Epoch [{str(epoch).zfill(3)}/{str(cfg.total_epochs).zfill(3)}] | Average Loss (train) {avg_loss_train:.5f} --- {time()-tic:.5f} sec. elapsed")
 
-            ckpt_path = osp.join(cfg.work_dir, f"epoch{str(epoch).zfill(3)}.pth")
-            if (epoch + 1) % 30 == 0:
-                torch.save(model.module.state_dict(), ckpt_path)
+            if (epoch + 1) % cfg.save_interval == 0:
+                torch.save(model.module.state_dict(), osp.join(cfg.work_dir, f"epoch{str(epoch).zfill(3)}.pth"))
+                print(f">> Checkpoint saved.")
 
             # validation
             if validate:
                 tic2 = time()
                 avg_loss_valid = valid_model(model, dataloaders_valid, criterion, cfg)
                 logger.info(f"[Summary-valid] Epoch [{str(epoch).zfill(3)}/{str(cfg.total_epochs).zfill(3)}] | Average Loss (valid) {avg_loss_valid:.5f} --- {time()-tic2:.5f} sec. elapsed")
+                
                 # Early stopping check
-                if avg_loss_valid < best_loss_val:
+                if avg_loss_valid < best_loss_val: # update best loss
                     best_loss_val = avg_loss_valid
                     patience_counter = 0
+                    if epoch > 10: # save best model (skip starting iterations)
+                        torch.save(model.module.state_dict(), osp.join(cfg.work_dir, "best.pth"))
+                        logger.info(f">> Best val loss update: {best_loss_val:.6f}. Best checkpoint saved.")
+                    else:
+                        logger.info(f">> Best val loss update: {best_loss_val:.6f}.")
                 else:
                     patience_counter += 1
                     if patience_counter >= cfg.early_stop_patience:
-                        print(">> Early stopping triggered. Training stopped.")
+                        logger.info(f">> Early stopping triggered after {patience_counter} epochs without improvement (best val loss: {best_loss_val:.6f}, patience: {cfg.early_stop_patience}). Training stopped.")
                         break
 
             scheduler.step(avg_loss_valid)

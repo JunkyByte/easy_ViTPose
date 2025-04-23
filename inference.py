@@ -44,16 +44,16 @@ def inference(args):
     assert not (args.save_img or args.save_json) or args.output_path, \
         'Specify an output path if using save-img or save-json flags'
     output_path = args.output_path
-    if output_path:
-        if os.path.isdir(output_path):
-            og_ext = input_path[input_path.rfind('.'):]
-            save_name_img = os.path.basename(input_path).replace(og_ext, f"_result{ext}")
-            save_name_json = os.path.basename(input_path).replace(og_ext, "_result.json")
-            output_path_img = os.path.join(output_path, save_name_img)
-            output_path_json = os.path.join(output_path, save_name_json)
-        else:
-            output_path_img = output_path + f'{ext}'
-            output_path_json = output_path + '.json'
+
+    # Output path
+    file_output_path = os.path.join(output_path, os.path.basename(input_path))
+    os.makedirs(file_output_path, exist_ok=True)
+    og_ext = input_path[input_path.rfind('.'):]
+    save_name_img = os.path.basename(input_path).replace(og_ext, f"_result{ext}")
+    save_name_json = os.path.basename(input_path).replace(og_ext, "_result.json")
+    output_path_img = os.path.join(file_output_path, save_name_img)
+    output_path_json = os.path.join(file_output_path, save_name_json)
+
 
     wait = 0
     total_frames = 1

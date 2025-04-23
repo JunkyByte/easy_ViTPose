@@ -31,7 +31,7 @@ CUR_PATH = osp.dirname(__file__)
 @click.command()
 @click.option('--config-path', type=click.Path(exists=True), default='config.yaml', required=True, help='train config file path')
 @click.option('--model-name', type=str, default='b', required=True, help='[b: ViT-B, l: ViT-L, h: ViT-H]')
-@click.option('--freeze-backbone', is_flag=True, help='Whether to freeze the backbone during training')
+@click.option('--freeze-backbone', type=bool, default=False, help='Whether to freeze the backbone during training')
 def main(config_path, model_name, freeze_backbone):
         
     cfg = {'b':b_cfg,

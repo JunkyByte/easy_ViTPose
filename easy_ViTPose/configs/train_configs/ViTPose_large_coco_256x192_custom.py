@@ -5,7 +5,7 @@
 evaluation = dict(interval=10, metric='mAP', save_best='AP')
 
 optimizer = dict(type='Adam', 
-                 lr=3e-3
+                 lr=3.75e-4
                 )
 
 optimizer_config = dict(grad_clip=dict(max_norm=1., norm_type=2))
@@ -17,7 +17,7 @@ lr_config = dict(patience = 10, # ReduceLROnPlateau lr patience
 
 total_epochs = 210
 save_interval = 30 # ckpt save interval
-early_stop_patience = 20
+early_stop_patience = 50
 
 target_type = 'GaussianHeatmap'
 channel_cfg = dict(
