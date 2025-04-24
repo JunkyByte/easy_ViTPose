@@ -13,7 +13,6 @@
 We provide all the VitPose original models, converted for inference, with single dataset format output.
 
 In addition to that we also provide a Coco-25 model, trained on the original coco dataset + feet https://cmu-perceptual-computing-lab.github.io/foot_keypoint_dataset/
-Finetuning is not currently supported, you can check de43d54cad87404cf0ad4a7b5da6bacf4240248b and previous commits for a working state of `train.py`
 
 > [!WARNING]
 > Ultralytics `yolov8` has issue with wrong bounding boxes when using `mps`, upgrade to latest version! (Works correctly on 8.2.48)
