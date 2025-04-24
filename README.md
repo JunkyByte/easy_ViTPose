@@ -198,8 +198,13 @@ The output format of the json files:
 ```
 
 ---
+
 ## Finetuning
-This guide provides the general process to fintune ViTPose on your own custom dataset.
+
+> [!NOTE]
+> easy_ViTPose supports finetuning again! Many thanks to [@CatoTea](https://github.com/CatoTea) for adding it back 🚀
+
+This guide provides the general process to finetune ViTPose on your own custom dataset.
 ### 1. Prepare Pre-trained Checkpoint
 
 - Download an official ViTPose checkpoint from the [official release](https://github.com/ViTAE-Transformer/ViTPose).
